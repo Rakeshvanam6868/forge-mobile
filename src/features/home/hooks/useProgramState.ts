@@ -11,11 +11,13 @@ import {
   isTodayCompleted,
   wasMissedYesterday,
   calculateStreak,
+  calculateLongestStreak,
   calculateCompletionInPeriod,
   buildFullGrid,
   GridDay,
   ProgramProgress,
 } from '../services/consistencyEngine';
+import { trackEvent } from '../../retention/services/retentionService';
 
 export type ProgramState = {
   currentProgramDay: number;
@@ -25,8 +27,8 @@ export type ProgramState = {
   completedThisWeek: number;
   completedThisMonth: number;
   streak: number;
+  longestStreak: number;
   grid: GridDay[];
-  // Program progress (derived from logs only)
   progress: ProgramProgress;
 };
 
@@ -57,6 +59,7 @@ export const useProgramState = () => {
     const todayCompleted = isTodayCompleted(allLogs);
     const missedYesterday = wasMissedYesterday(allLogs, startDate);
     const streak = calculateStreak(allLogs, startDate);
+    const longestStreak = calculateLongestStreak(allLogs, startDate);
     const weekly = calculateCompletionInPeriod(allLogs, 7);
     const monthly = calculateCompletionInPeriod(allLogs, 30);
     const grid = buildFullGrid(allLogs, startDate);
@@ -69,6 +72,7 @@ export const useProgramState = () => {
       completedThisWeek: weekly.completed,
       completedThisMonth: monthly.completed,
       streak,
+      longestStreak,
       grid,
       progress,
     };
@@ -83,10 +87,19 @@ export const useProgramState = () => {
     onSuccess: () => {
       // Invalidate logs → everything re-derives
       queryClient.invalidateQueries({ queryKey: ['allLogs', user?.id] });
-      // Invalidate program queries so TodayScreen/WeekScreen refetch for new day
       queryClient.invalidateQueries({ queryKey: ['programWeek'] });
       queryClient.invalidateQueries({ queryKey: ['dayDetail'] });
       queryClient.invalidateQueries({ queryKey: ['todayPlan'] });
+      queryClient.invalidateQueries({ queryKey: ['exerciseHistory', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['energyTrend', user?.id] });
+
+      // Track retention events (fire-and-forget)
+      if (user?.id) {
+        trackEvent(user.id, 'DAY_COMPLETED', { programDay: state?.currentProgramDay });
+        if (state?.missedYesterday) {
+          trackEvent(user.id, 'STREAK_BROKEN', { previousStreak: state?.streak });
+        }
+      }
     },
   });
 

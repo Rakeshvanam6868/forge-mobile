@@ -41,7 +41,7 @@ export const HomeScreen = () => {
       <View style={styles.header}>
         <Text style={styles.title}>Your Progress</Text>
         <Text style={styles.subtitle}>
-          Day {state.currentProgramDay} · 🔥 {state.streak} day streak
+          Day {state.currentProgramDay} · 🔥 {state.streak} day streak · Best: {state.longestStreak}
         </Text>
       </View>
 

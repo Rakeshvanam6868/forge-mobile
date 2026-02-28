@@ -12,6 +12,7 @@ import { OnboardingScreen } from '../features/onboarding/screens/OnboardingScree
 import { TodayScreen } from '../features/program/screens/TodayScreen';
 import { WeekScreen } from '../features/program/screens/WeekScreen';
 import { HomeScreen } from '../features/home/screens/HomeScreen';
+import { AnalyticsScreen } from '../features/analytics/screens/AnalyticsScreen';
 import { colors } from '../core/theme/colors';
 
 const AuthStack = createNativeStackNavigator();
@@ -25,13 +26,19 @@ const AuthNavigator = () => (
   </AuthStack.Navigator>
 );
 
+import { useRetention } from '../features/retention/hooks/useRetention';
+
 const TabIcon = ({ label, focused }: { label: string; focused: boolean }) => (
   <Text style={{ fontSize: 11, color: focused ? colors.primary : colors.textSecondary, fontWeight: focused ? '700' : '400' }}>
     {label}
   </Text>
 );
 
-const AppTabs = () => (
+const AppTabs = () => {
+  // Track APP_OPEN once per day
+  useRetention();
+
+  return (
   <Tab.Navigator
     screenOptions={{
       headerShown: false,
@@ -69,9 +76,17 @@ const AppTabs = () => (
         tabBarLabel: ({ focused }) => <TabIcon label="Progress" focused={focused} />,
       }}
     />
+    <Tab.Screen
+      name="Analytics"
+      component={AnalyticsScreen}
+      options={{
+        tabBarIcon: ({ focused }) => <Text style={{ fontSize: 20 }}>🎯</Text>,
+        tabBarLabel: ({ focused }) => <TabIcon label="Analytics" focused={focused} />,
+      }}
+    />
   </Tab.Navigator>
-);
-
+  );
+};
 const MainNavigator = ({ hasProfile }: { hasProfile: boolean }) => (
   <MainStack.Navigator screenOptions={{ headerShown: false }}>
     {hasProfile ? (

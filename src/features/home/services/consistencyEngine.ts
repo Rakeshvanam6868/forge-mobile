@@ -177,6 +177,44 @@ export const calculateCompletionInPeriod = (
 };
 
 /**
+ * Calculate the longest streak ever achieved.
+ * Walks all completed log dates sorted ascending, finds max consecutive run.
+ * Pure function — deterministic on same logs.
+ */
+export const calculateLongestStreak = (
+  logs: DailyLogRow[],
+  programStartDate: string
+): number => {
+  const sortedDates = logs
+    .filter((l) => l.completed)
+    .map((l) => l.log_date)
+    .sort();
+
+  if (sortedDates.length === 0) return 0;
+
+  let longest = 1;
+  let current = 1;
+
+  for (let i = 1; i < sortedDates.length; i++) {
+    const prevDate = new Date(sortedDates[i - 1] + 'T00:00:00');
+    const currDate = new Date(sortedDates[i] + 'T00:00:00');
+
+    const diffMs = currDate.getTime() - prevDate.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+    if (diffDays === 1) {
+      current++;
+      if (current > longest) longest = current;
+    } else if (diffDays > 1) {
+      current = 1;
+    }
+    // diffDays === 0 means duplicate date, skip
+  }
+
+  return longest;
+};
+
+/**
  * Generate the full grid from program start date to today.
  * Works for any duration: 1 day, 30 days, 100 days, 365 days.
  * Each cell is tagged with a status for coloring:
