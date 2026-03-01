@@ -2,114 +2,127 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useUserProfile } from '../../onboarding/hooks/useUserProfile';
-import { getAllLogs, upsertTodayLog } from '../services/logQueries';
+import { supabase } from '../../../core/supabase/client';
 import { toDateString } from '../../../core/utils/dateUtils';
-import {
-  isTodayCompleted,
-  isTodaySkipped,
-  wasMissedYesterday,
-  calculateStreak,
-  calculateLongestStreak,
-  calculateCompletionInPeriod,
-  buildFullGrid,
-  GridDay,
-  DailyLogRow,
-} from '../services/consistencyEngine';
-import { trackEvent } from '../../retention/services/retentionService';
-
-export type ProgramState = {
-  todayCompleted: boolean;
-  todaySkipped: boolean;
-  missedYesterday: boolean;
-  completedThisWeek: number;
-  completedThisMonth: number;
-  streak: number;
-  longestStreak: number;
-  grid: GridDay[];
-  allLogs: DailyLogRow[];
-};
+import { UserEvent } from '../../analytics/types/analytics';
+import { useCurrentProgram } from '../../program/hooks/useProgram';
+import { ProgramDay } from '../../program/hooks/useWeekPlan';
+import { resolveProgramState, ProgramStateResolution } from '../../program/services/programStateEngine';
 
 export const useProgramState = () => {
   const { user } = useAuth();
-  const { profile, isLoading: isProfileLoading } = useUserProfile();
+  const { profile } = useUserProfile();
   const queryClient = useQueryClient();
+  const { data: program } = useCurrentProgram();
 
-  // SINGLE QUERY — fetches ALL completed logs
-  const { data: allLogs, isLoading } = useQuery({
-    queryKey: ['allLogs', user?.id],
-    queryFn: () => getAllLogs(user!.id),
+  // 1. Fetch ALL user_events (Single source of truth for Analytics & Program State)
+  const { data: events, isLoading: isEventsLoading } = useQuery({
+    queryKey: ['userEvents', user?.id],
+    queryFn: async (): Promise<UserEvent[]> => {
+      const { data, error } = await supabase
+        .from('user_events')
+        .select('*')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return (data ?? []) as UserEvent[];
+    },
     enabled: !!user?.id,
   });
 
-  // Derive ALL state from pure functions + single query result
-  const state = useMemo<ProgramState | null>(() => {
-    if (!profile || !allLogs) return null;
+  // 2. Fetch the full active Program Structure (Flat list of days)
+  const { data: programStructure, isLoading: isStructureLoading } = useQuery({
+    queryKey: ['programStructure', program?.id],
+    queryFn: async (): Promise<ProgramDay[]> => {
+      if (!program?.id) return [];
+      
+      // Fetch weeks
+      const { data: weeks, error: weeksErr } = await supabase
+        .from('program_weeks')
+        .select('id, week_number')
+        .eq('program_id', program.id)
+        .order('week_number', { ascending: true });
+        
+      if (weeksErr) throw weeksErr;
+      if (!weeks || weeks.length === 0) return [];
+      
+      const weekIds = weeks.map(w => w.id);
+      
+      // Fetch days for those weeks
+      const { data: days, error: daysErr } = await supabase
+        .from('program_days')
+        .select('*')
+        .in('program_week_id', weekIds)
+        .order('day_number', { ascending: true });
+        
+      if (daysErr) throw daysErr;
+      
+      // We need to sort days logically across weeks
+      // A quick way is to join them in memory, or assume day_number is globally unique per week.
+      // Usually day_number is 1-7 per week. So sort by week_number then day_number.
+      const weeksMap = new Map(weeks.map(w => [w.id, w.week_number]));
+      const sortedDays = (days || []).sort((a, b) => {
+        const wA = weeksMap.get(a.program_week_id) || 0;
+        const wB = weeksMap.get(b.program_week_id) || 0;
+        if (wA !== wB) return wA - wB;
+        return a.day_number - b.day_number;
+      });
+      
+      return sortedDays as ProgramDay[];
+    },
+    enabled: !!program?.id,
+  });
 
-    const startDate = profile.program_start_date
-      || (profile.created_at ? profile.created_at.split('T')[0] : toDateString(new Date()));
+  // 3. Resolve Program State purely from events and structure
+  const state = useMemo<ProgramStateResolution | null>(() => {
+    if (!events || !programStructure) return null;
+    const today = toDateString(new Date());
+    return resolveProgramState(events, programStructure, profile, today);
+  }, [events, programStructure, profile]);
 
-    const todayCompleted = isTodayCompleted(allLogs);
-    const todaySkipped = isTodaySkipped(allLogs);
-    const missedYesterday = wasMissedYesterday(allLogs, startDate);
-    const streak = calculateStreak(allLogs, startDate);
-    const longestStreak = calculateLongestStreak(allLogs, startDate);
-    const weekly = calculateCompletionInPeriod(allLogs, 7);
-    const monthly = calculateCompletionInPeriod(allLogs, 30);
-    const grid = buildFullGrid(allLogs, startDate);
-
-    return {
-      todayCompleted,
-      todaySkipped,
-      missedYesterday,
-      completedThisWeek: weekly.completed,
-      completedThisMonth: monthly.completed,
-      streak,
-      longestStreak,
-      grid,
-      allLogs,
-    };
-  }, [profile, allLogs]);
-
+  // 4. Completion Mutation (Atomic & Event-driven)
   const completeToday = useMutation({
     mutationFn: async ({
       energyLevel,
       difficulty = 'perfect',
-      planDayId = null,
-      status = 'completed',
+      programDayNumber
     }: {
       energyLevel: number;
       difficulty?: string;
-      planDayId?: string | null;
-      status?: 'completed' | 'skipped';
+      programDayNumber: number;
     }) => {
       if (!user?.id) throw new Error('No user');
-      const energyMap = { 1: 'low', 2: 'medium', 3: 'high' } as Record<number, string>;
-      return upsertTodayLog(user.id, planDayId, status, energyMap[energyLevel] || 'medium', difficulty);
+      
+      const payload: Partial<UserEvent> = {
+        user_id: user.id,
+        event_type: 'DAY_COMPLETED',
+        event_date: toDateString(new Date()),
+        event_meta: {
+          programDayNumber,
+          energyLevel,
+          difficulty
+        }
+      };
+
+      const { error } = await supabase.from('user_events').insert(payload);
+      if (error) throw error;
+      return true;
     },
     onSuccess: () => {
-      // Invalidate logs → everything re-derives
-      queryClient.invalidateQueries({ queryKey: ['allLogs', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['programWeek'] });
-      queryClient.invalidateQueries({ queryKey: ['dayDetail'] });
-      queryClient.invalidateQueries({ queryKey: ['todayPlan'] });
+      // ⚡ REACT QUERY ORCHESTRATION GUARANTEE ⚡
+      // Invalidate events so that useProgramState and useAnalytics recompute
+      queryClient.invalidateQueries({ queryKey: ['userEvents', user?.id] });
+      // Minor caches that might depend on it
       queryClient.invalidateQueries({ queryKey: ['exerciseHistory', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['energyTrend', user?.id] });
-
-      // Track retention events (fire-and-forget)
-      if (user?.id) {
-        trackEvent(user.id, 'DAY_COMPLETED', { streak: state?.streak });
-        if (state?.missedYesterday) {
-          trackEvent(user.id, 'STREAK_BROKEN', { previousStreak: state?.streak });
-        }
-      }
     },
   });
 
-  const isHydrating = isLoading || isProfileLoading || !profile || !allLogs || !state;
+  const isLoading = isEventsLoading || isStructureLoading || !state;
 
   return {
     state,
-    isLoading: isHydrating,
+    isLoading,
     completeToday,
   };
 };

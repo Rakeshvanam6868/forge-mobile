@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  TouchableOpacity, Alert, Animated as RNAnimated,
+  TouchableOpacity, Alert
 } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/hooks/useAuth';
@@ -42,15 +42,15 @@ export const TodayScreen = () => {
   const queryClient = useQueryClient();
   const { adaptiveState, isLoading, completeToday } = useAdaptiveDay();
   const { logEvent } = useRetention();
+  
   const [energyLevel, setEnergyLevel] = useState(2);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [showCelebration, setShowCelebration] = useState(false);
   const justCompleted = useRef(false);
-  const [completedSessionTitle, setCompletedSessionTitle] = useState('');
 
   useEffect(() => {
     if (adaptiveState?.workoutType) logEvent('DAY_VIEWED', { workoutType: adaptiveState.workoutType });
-  }, [adaptiveState?.workoutType]);
+  }, [adaptiveState?.workoutType, logEvent]);
 
   const saveHistory = useMutation({
     mutationFn: async () => {
@@ -70,65 +70,120 @@ export const TodayScreen = () => {
 
   const handleDone = useCallback(() => {
     if (completeToday.isPending || saveHistory.isPending || !adaptiveState) return;
-    setCompletedSessionTitle(adaptiveState.dayDetail.title);
     
     completeToday.mutate({
       energyLevel,
       difficulty,
-      planDayId: adaptiveState.dayDetail.dayId,
-      status: 'completed'
+      programDayNumber: adaptiveState.currentProgramDay,
     }, {
       onSuccess: () => {
         justCompleted.current = true;
         setShowCelebration(true);
         saveHistory.mutate();
-        // Auto-dismiss celebration after 3 seconds
         setTimeout(() => setShowCelebration(false), 3000);
       },
       onError: (error: any) => Alert.alert('Error completing today', error.message),
     });
   }, [completeToday, saveHistory, energyLevel, difficulty, adaptiveState]);
 
-  const handleSkip = () => {
-    if (!adaptiveState) return;
-    Alert.alert('Skip Today?', 'Skipping allows your body to recover and protects your streak.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Skip', style: 'destructive', onPress: () => {
-        completeToday.mutate({ 
-          energyLevel: 2, 
-          difficulty: 'medium', 
-          planDayId: adaptiveState.dayDetail.dayId, 
-          status: 'skipped' 
-        });
-      } },
-    ]);
-  };
-
   if (isLoading || !adaptiveState) {
     return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={palette.primary} /></View>;
   }
 
-  const { dayDetail, adaptivePlan, adaptedWorkouts, workoutType, uiLabel, uiSubLabel, todayCompleted, missedYesterday } = adaptiveState;
+  const { dayDetail, adaptivePlan, adaptedWorkouts, workoutType, uiLabel, uiSubLabel, lifecycleState, nextTrainingDateString } = adaptiveState;
 
-  if (!dayDetail) {
+  if (!dayDetail || lifecycleState === 'NOT_STARTED') {
     return <View style={[styles.screen, styles.center]}><Text style={styles.emptyText}>No program found. Complete onboarding first.</Text></View>;
   }
 
+  // Pure UI Conditional Sub-renders based on State Machine:
+  const renderWorkoutSection = () => (
+    <>
+      <SectionBlock title="Workout">
+        {adaptedWorkouts.map((w: AdaptedWorkout, i: number) => (
+          <PrimaryCard key={w.id} state={w.isAdapted ? 'adapted' : 'default'} accentColor={w.isAdapted ? palette.accentAmber : undefined}>
+            <View style={styles.exerciseRow}>
+              <View style={styles.stepCircle}><Text style={styles.stepNum}>{i + 1}</Text></View>
+              <View style={styles.exerciseBody}>
+                <View style={styles.exerciseNameRow}>
+                  <Text style={styles.exerciseName} numberOfLines={2}>{w.exercise_name}</Text>
+                  {w.isAdapted && <Badge label="ADAPTED" variant="warning" />}
+                </View>
+                <Text style={styles.exerciseSets}>
+                  {w.adaptedSets ? `${w.adaptedSets} sets` : ''}
+                  {w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}
+                  {w.duration ? ` · ${w.duration}` : ''}
+                </Text>
+              </View>
+            </View>
+          </PrimaryCard>
+        ))}
+      </SectionBlock>
+
+      <View style={styles.actionSection}>
+        {renderFeedback('How was this workout?', DIFFICULTIES.map((d) => ({ key: d.value, emoji: d.emoji, label: d.label })), difficulty, setDifficulty)}
+        {renderFeedback('How is your energy?', ENERGIES.map((e) => ({ key: String(e.level), emoji: e.emoji, label: e.label })), String(energyLevel), (v: string) => setEnergyLevel(parseInt(v, 10)))}
+        <AuthButton title={completeToday.isPending || saveHistory.isPending ? 'Saving...' : 'Complete Day'} onPress={handleDone} disabled={completeToday.isPending || saveHistory.isPending} />
+      </View>
+    </>
+  );
+
+  const renderCompletedState = () => (
+    <View style={styles.completedContainer}>
+      <GradientCard colors={['#166534', '#15803D']} style={styles.completionCard}>
+        <View style={styles.completionContent}>
+          <Text style={styles.completionFlame}>🔥</Text>
+          <Text style={styles.completionTitle}>Session Finished</Text>
+          <Text style={styles.completionSub}>You crushed today's target.</Text>
+        </View>
+      </GradientCard>
+      
+      <View style={styles.insightBox}>
+        <Text style={styles.heroIcon}>🧠</Text>
+        <Text style={styles.insightText}>Recovery Insight:</Text>
+        <Text style={styles.insightValue}>Adaptive load will measure your next session based on today's effort.</Text>
+      </View>
+
+      <View style={styles.nextDateBox}>
+        <Text style={styles.nextDateLabel}>Next session</Text>
+        <Text style={styles.nextDateValue}>{nextTrainingDateString}</Text>
+        <Text style={styles.nextDatePreview}>Preview: {FOCUS_ICONS[workoutType]} {dayDetail.title}</Text>
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.screen}>
-      {/* 🎉 Celebration overlay */}
       <CelebrationOverlay
         visible={showCelebration}
-        streak={adaptiveState.streak}
-        message={completedSessionTitle ? `${completedSessionTitle} Complete!` : 'Session Complete!'}
+        streak={1} // To be connected to Analytics
+        message="Session Complete!"
       />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 👋 Greeting */}
         <GreetingHeader />
 
-        {/* ══════ HERO: Adaptive Intelligence (gradient) ══════ */}
-        {adaptivePlan.systemMessage ? (
+        {lifecycleState === 'MISSED_TRAINING_DAY' && (
+          <View style={styles.warningBanner}>
+            <View style={styles.iconWrapWarning}><Text style={styles.iconInner}>⚠️</Text></View>
+            <View style={styles.warningContent}>
+              <Text style={styles.warningTitle}>Missed Session</Text>
+              <Text style={styles.warningText}>You missed your scheduled day. Catch up on this workout to protect your sequence.</Text>
+            </View>
+          </View>
+        )}
+
+        {lifecycleState === 'RECOVERY_DAY' && (
+          <View style={styles.infoBanner}>
+            <View style={styles.iconWrapInfo}><Text style={styles.iconInner}>🧘</Text></View>
+            <View style={styles.warningContent}>
+              <Text style={styles.infoTitle}>Recovery Day</Text>
+              <Text style={styles.infoText}>Your body grows while resting. Next session is {nextTrainingDateString}.</Text>
+            </View>
+          </View>
+        )}
+
+        {adaptivePlan.systemMessage && lifecycleState !== 'SESSION_COMPLETED_TODAY' ? (
           <GradientCard colors={['#1E293B', '#2D3A4F']} style={styles.heroCustom}>
             <View style={styles.heroInner}>
               <View style={styles.heroIconWrap}>
@@ -145,93 +200,45 @@ export const TodayScreen = () => {
           </GradientCard>
         ) : null}
 
-        {/* Streak reset warning */}
-        {!adaptiveState.todayCompleted && adaptiveState.missedYesterday && (
-          <View style={styles.warningBanner}>
-            <View style={styles.iconWrap}><Text style={styles.iconInner}>⚡</Text></View>
-            <View style={styles.warningContent}>
-              <Text style={styles.warningTitle}>Streak reset</Text>
-              <Text style={styles.warningText}>You missed a day — start fresh today.</Text>
-            </View>
+        {lifecycleState !== 'SESSION_COMPLETED_TODAY' && (
+          <View style={styles.headerBlock}>
+            <Text style={styles.headerCaption}>UPCOMING SESSION</Text>
+            <Text style={styles.headerTitle}>{FOCUS_ICONS[workoutType] || '📋'}  {dayDetail.title}</Text>
+            <Text style={styles.headerMeta}>{uiSubLabel}</Text>
           </View>
         )}
 
-        {/* Header */}
-        <View style={styles.headerBlock}>
-          <Text style={styles.headerCaption}>{todayCompleted ? 'COMPLETED SESSION' : 'UPCOMING SESSION'}</Text>
-          <Text style={styles.headerTitle}>{FOCUS_ICONS[workoutType] || '📋'}  {dayDetail.title}</Text>
-          <Text style={styles.headerMeta}>{uiSubLabel}</Text>
-        </View>
+        {/* STRICT STATE SWITCH */}
+        {lifecycleState === 'SESSION_COMPLETED_TODAY' 
+          ? renderCompletedState() 
+          : renderWorkoutSection()
+        }
 
-        {/* ══════ WORKOUTS ══════ */}
-        <SectionBlock title="Workout">
-          {adaptedWorkouts.map((w: AdaptedWorkout, i: number) => (
-            <PrimaryCard key={w.id} state={w.isAdapted ? 'adapted' : 'default'} accentColor={w.isAdapted ? palette.accentAmber : undefined}>
-              <View style={styles.exerciseRow}>
-                <View style={styles.stepCircle}><Text style={styles.stepNum}>{i + 1}</Text></View>
-                <View style={styles.exerciseBody}>
-                  <View style={styles.exerciseNameRow}>
-                    <Text style={styles.exerciseName} numberOfLines={2}>{w.exercise_name}</Text>
-                    {w.isAdapted && <Badge label="ADAPTED" variant="warning" />}
-                  </View>
-                  <Text style={styles.exerciseSets}>
-                    {w.adaptedSets ? `${w.adaptedSets} sets` : ''}
-                    {w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}
-                    {w.duration ? ` · ${w.duration}` : ''}
-                  </Text>
-                  {w.isAdapted && (
-                    <Text style={styles.exerciseBase}>
-                      Base: {w.sets ? `${w.sets} sets` : ''}{w.reps && w.reps !== '—' ? ` × ${w.reps}` : ''}
-                    </Text>
-                  )}
-                </View>
+        {/* MEALS - Only show if not completed today */}
+        {lifecycleState !== 'SESSION_COMPLETED_TODAY' && (
+          <SectionBlock title="Meals">
+            {adaptivePlan.mealAdjustment !== 'none' && (
+              <View style={styles.mealAdjustBanner}>
+                <Text style={styles.mealAdjustText}>{MEAL_ADJUSTMENT_LABELS[adaptivePlan.mealAdjustment]}</Text>
               </View>
-            </PrimaryCard>
-          ))}
-        </SectionBlock>
-
-        {/* ══════ MEALS ══════ */}
-        <SectionBlock title="Meals">
-          {adaptivePlan.mealAdjustment !== 'none' && (
-            <View style={styles.mealAdjustBanner}>
-              <Text style={styles.mealAdjustText}>{MEAL_ADJUSTMENT_LABELS[adaptivePlan.mealAdjustment]}</Text>
-            </View>
-          )}
-          {dayDetail.meals.length === 0 ? (
-            <PrimaryCard><Text style={styles.emptyText}>No meals for today.</Text></PrimaryCard>
-          ) : (
-            dayDetail.meals.map((m) => (
-              <PrimaryCard key={m.id}>
-                <View style={styles.mealRow}>
-                  <View style={styles.iconWrap}><Text style={styles.iconInner}>{MEAL_EMOJI[m.meal_type] || '🍽️'}</Text></View>
-                  <View style={styles.mealInfo}>
-                    <Text style={styles.mealType}>{m.meal_type.charAt(0).toUpperCase() + m.meal_type.slice(1)}</Text>
-                    <Text style={styles.mealTitle}>{m.title}</Text>
-                    {m.description ? <Text style={styles.mealDesc}>{m.description}</Text> : null}
+            )}
+            {dayDetail.meals.length === 0 ? (
+              <PrimaryCard><Text style={styles.emptyText}>No meals for today.</Text></PrimaryCard>
+            ) : (
+              dayDetail.meals.map((m) => (
+                <PrimaryCard key={m.id}>
+                  <View style={styles.mealRow}>
+                    <View style={styles.iconWrap}><Text style={styles.iconInner}>{MEAL_EMOJI[m.meal_type] || '🍽️'}</Text></View>
+                    <View style={styles.mealInfo}>
+                      <Text style={styles.mealType}>{m.meal_type.charAt(0).toUpperCase() + m.meal_type.slice(1)}</Text>
+                      <Text style={styles.mealTitle}>{m.title}</Text>
+                      {m.description ? <Text style={styles.mealDesc}>{m.description}</Text> : null}
+                    </View>
                   </View>
-                </View>
-              </PrimaryCard>
-            ))
-          )}
-        </SectionBlock>
-
-        {/* ══════ COMPLETION / ACTIONS ══════ */}
-        {adaptiveState.todayCompleted ? (
-          <GradientCard colors={['#166534', '#15803D']} style={styles.completionCard}>
-            <View style={styles.completionContent}>
-              <Text style={styles.completionFlame}>🔥</Text>
-              <Text style={styles.completionNum}>{adaptiveState.streak}</Text>
-              <Text style={styles.completionTitle}>Session Complete</Text>
-              <Text style={styles.completionSub}>{adaptiveState.streak} day streak 🏆</Text>
-            </View>
-          </GradientCard>
-        ) : (
-          <View style={styles.actionSection}>
-            {renderFeedback('How was this workout?', DIFFICULTIES.map((d) => ({ key: d.value, emoji: d.emoji, label: d.label })), difficulty, setDifficulty)}
-            {renderFeedback('How is your energy?', ENERGIES.map((e) => ({ key: String(e.level), emoji: e.emoji, label: e.label })), String(energyLevel), (v: string) => setEnergyLevel(parseInt(v, 10)))}
-            <AuthButton title={completeToday.isPending || saveHistory.isPending ? 'Saving...' : 'Complete Day'} onPress={handleDone} disabled={completeToday.isPending || saveHistory.isPending} />
-            <AuthButton title="Skip Today" onPress={handleSkip} variant="outline" />
-          </View>
+                </PrimaryCard>
+              ))
+            )}
+          </SectionBlock>
         )}
       </ScrollView>
     </View>
@@ -260,95 +267,69 @@ const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center' },
   content: { padding: spacing.screenPadding, paddingTop: 56, paddingBottom: SCROLL_BOTTOM_PADDING },
   emptyText: { ...fonts.body, color: palette.textMuted },
-
-  // Hero
-  heroCustom: { paddingVertical: spacing['2xl'], paddingHorizontal: spacing['2xl'] },
+  heroCustom: { paddingVertical: spacing['2xl'], paddingHorizontal: spacing['2xl'], marginBottom: spacing.lg },
   heroInner: { flexDirection: 'row', alignItems: 'flex-start' },
-  heroIconWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: spacing.innerMd,
-  },
+  heroIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: spacing.innerMd },
   heroIcon: { fontSize: 20 },
   heroTextBlock: { flex: 1 },
   heroMessage: { ...fonts.body, color: palette.textOnDark, lineHeight: 22 },
   heroBadges: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.innerMd },
-
-  // Warning
-  warningBanner: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: palette.warningSoft, borderRadius: radius.inner,
-    padding: spacing.lg, marginBottom: spacing.cardGap,
-  },
-  warningContent: { flex: 1, marginLeft: spacing.innerMd },
-  warningTitle: { ...fonts.cardTitle, color: '#92400E' },
-  warningText: { ...fonts.body, color: '#A16207', marginTop: 2 },
-
-  // Icon
-  iconWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: palette.iconTint,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: palette.iconTint, alignItems: 'center', justifyContent: 'center' },
+  iconWrapWarning: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' },
+  iconWrapInfo: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center' },
   iconInner: { fontSize: 20 },
-
-  // Header
-  headerBlock: { marginBottom: spacing.innerSm },
+  headerBlock: { marginBottom: spacing.innerSm, marginTop: spacing.innerMd },
   headerCaption: { ...fonts.badge, color: palette.primary, marginBottom: spacing.xs },
   headerTitle: { ...fonts.programDayTitle, color: palette.textPrimary },
   headerMeta: { ...fonts.label, color: palette.textMuted, marginTop: spacing.innerSm },
-
-  // Exercise
   exerciseRow: { flexDirection: 'row', alignItems: 'center' },
-  stepCircle: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: palette.primary,
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: spacing.innerMd,
-  },
+  stepCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center', marginRight: spacing.innerMd },
   stepNum: { ...fonts.label, color: palette.white, fontWeight: '600' },
   exerciseBody: { flex: 1 },
   exerciseNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   exerciseName: { ...fonts.cardTitle, color: palette.textPrimary, flexShrink: 1 },
   exerciseSets: { ...fonts.body, color: palette.textSecondary, marginTop: 2 },
-  exerciseBase: { ...fonts.caption, color: palette.textMuted, marginTop: 2, fontStyle: 'italic' },
-
-  // Meals
-  mealAdjustBanner: {
-    backgroundColor: palette.warningSoft, borderRadius: radius.inner,
-    padding: spacing.innerMd, marginBottom: spacing.cardGap,
-  },
+  mealAdjustBanner: { backgroundColor: palette.warningSoft, borderRadius: radius.inner, padding: spacing.innerMd, marginBottom: spacing.cardGap },
   mealAdjustText: { ...fonts.bodyMedium, color: '#C2410C', textAlign: 'center' },
   mealRow: { flexDirection: 'row', alignItems: 'center' },
   mealInfo: { flex: 1, marginLeft: spacing.innerMd },
   mealType: { ...fonts.caption, color: palette.textMuted, textTransform: 'uppercase' },
   mealTitle: { ...fonts.cardTitle, color: palette.textPrimary, marginTop: 1 },
   mealDesc: { ...fonts.body, color: palette.textMuted, marginTop: 2 },
-
-  // Completion (gradient green)
-  completionCard: { marginTop: spacing.sectionGap },
+  
+  // States
+  completedContainer: { marginTop: spacing.sectionGap },
+  completionCard: { paddingVertical: spacing['2xl'] },
   completionContent: { alignItems: 'center' },
   completionFlame: { fontSize: 44, marginBottom: spacing.innerSm },
-  completionNum: { ...fonts.heroNumber, color: palette.white },
   completionTitle: { ...fonts.sectionHeader, color: 'rgba(255,255,255,0.85)', marginTop: spacing.innerSm },
   completionSub: { ...fonts.body, color: 'rgba(255,255,255,0.55)', marginTop: spacing.xs },
+  
+  insightBox: { backgroundColor: palette.bgSecondary, padding: spacing.innerMd, borderRadius: radius.card, marginTop: spacing.cardGap, flexDirection: 'row', alignItems: 'center', ...shadows.level1 },
+  insightText: { ...fonts.label, color: palette.textPrimary, marginLeft: spacing.sm, marginRight: spacing.xs },
+  insightValue: { ...fonts.body, color: palette.textMuted, flex: 1 },
+  
+  nextDateBox: { backgroundColor: palette.bgElevated, padding: spacing.lg, borderRadius: radius.card, marginTop: spacing.cardGap, alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
+  nextDateLabel: { ...fonts.label, color: palette.textMuted, textTransform: 'uppercase', marginBottom: 4 },
+  nextDateValue: { ...fonts.screenTitle, color: palette.primary },
+  nextDatePreview: { ...fonts.caption, color: palette.textSecondary, marginTop: spacing.sm },
 
-  // Actions
-  actionSection: {
-    marginTop: spacing.sectionGap, paddingTop: spacing['2xl'],
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.borderSubtle,
-  },
+  actionSection: { marginTop: spacing.sectionGap, paddingTop: spacing['2xl'], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.borderSubtle },
   fbBlock: { marginBottom: spacing.xl },
   fbTitle: { ...fonts.cardTitle, color: palette.textPrimary, textAlign: 'center', marginBottom: spacing.innerMd },
   fbRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.innerMd },
-  fbBtn: {
-    alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.innerMd,
-    borderRadius: radius.inner, backgroundColor: palette.bgSecondary,
-    width: 94, minHeight: 84, ...shadows.level1,
-  },
+  fbBtn: { alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.innerMd, borderRadius: radius.inner, backgroundColor: palette.bgSecondary, width: 94, minHeight: 84, ...shadows.level1 },
   fbBtnActive: { backgroundColor: palette.bgElevated, ...shadows.focus },
   fbEmoji: { fontSize: 26, marginBottom: spacing.xs },
   fbLabel: { ...fonts.caption, color: palette.textMuted },
   fbLabelActive: { color: palette.primary },
+
+  warningBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.warningSoft, borderRadius: radius.inner, padding: spacing.lg, marginBottom: spacing.lg },
+  infoBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F9FF', borderRadius: radius.inner, padding: spacing.lg, marginBottom: spacing.lg },
+  warningContent: { flex: 1, marginLeft: spacing.innerMd },
+  warningTitle: { ...fonts.cardTitle, color: '#92400E' },
+  warningText: { ...fonts.body, color: '#B45309', marginTop: 2 },
+  infoTitle: { ...fonts.cardTitle, color: '#0369A1' },
+  infoText: { ...fonts.body, color: '#0284C7', marginTop: 2 },
 });
+

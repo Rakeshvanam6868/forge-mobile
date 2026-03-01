@@ -39,5 +39,5 @@ export const useAnalytics = () => {
     return computeAnalytics(events, today);
   }, [events]);
 
-  return { analytics, isLoading };
+  return { analytics, events, isLoading };
 };

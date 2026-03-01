@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useProgramState } from '../../home/hooks/useProgramState';
-import { useAdaptiveDay } from '../hooks/useAdaptiveDay';
 import { Badge } from '../../../core/components/Badge';
 import { SectionBlock } from '../../../core/components/SectionBlock';
 import { GreetingHeader } from '../../../core/components/GreetingHeader';
@@ -12,84 +11,66 @@ const FOCUS_ICONS: Record<string, string> = { strength: '💪', cardio: '🏃', 
 
 export const WeekScreen = () => {
   const { state, isLoading: stateLoading } = useProgramState();
-  const { adaptiveState, isLoading: adaptiveLoading } = useAdaptiveDay();
 
-  if (stateLoading || adaptiveLoading || !state || !adaptiveState) {
+  if (stateLoading || !state) {
     return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={palette.primary} /></View>;
   }
 
-  // Build a rolling 7-day timeline (last 5 days + today + tomorrow placeholder)
-  const recentLogs = state.allLogs.slice(0, 5).reverse();
+  // Pure UI mapping: Read directly from derived timeline
+  const timeline = state.timeline;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {/* 👋 Greeting */}
       <GreetingHeader />
 
       <View style={styles.header}>
-        <Text style={styles.caption}>ADAPTIVE ENGINE</Text>
+        <Text style={styles.caption}>PROGRAM SEQUENCE</Text>
         <Text style={styles.title}>Continuity Timeline</Text>
         <Text style={styles.meta}>Your rolling training history and upcoming target.</Text>
       </View>
 
-      {/* ══════ TIMELINE ══════ */}
       <SectionBlock title="Training Flow">
         
-        {/* Render History */}
-        {recentLogs.map((log, idx) => (
-          <View key={log.id} style={styles.tlItem}>
-            <View style={styles.tlTrack}>
-              <View style={[styles.tlDot, styles.dotDone]} />
-              <View style={[styles.tlLine, styles.lineDone]} />
-            </View>
-            <View style={[styles.dayCard, styles.dayDone]}>
-              <View style={styles.dayHeader}>
-                <Text style={styles.dayLabel}>{new Date(log.log_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
-                {log.status === 'completed' && <Badge label="COMPLETED" variant="success" />}
-                {log.is_skipped && <Badge label="SKIPPED" variant="warning" />}
+        {timeline.map((item, idx) => {
+          const isDone = item.state === 'COMPLETED';
+          const isTarget = item.state === 'TARGET';
+          const isFuture = item.state === 'UPCOMING';
+          const isLast = idx === timeline.length - 1;
+
+          return (
+            <View key={`${item.id}-${idx}`} style={styles.tlItem}>
+              <View style={styles.tlTrack}>
+                <View style={[styles.tlDot, isDone && styles.dotDone, isTarget && styles.dotToday, isFuture && styles.dotFuture]} />
+                {!isLast && <View style={[styles.tlLine, isDone && styles.lineDone]} />}
               </View>
-              <Text style={styles.dayTitle} numberOfLines={1}>
-                {log.difficulty === 'hard' ? 'Hard Effort' : log.difficulty === 'easy' ? 'Active Recovery' : 'Solid Session'}
-              </Text>
-            </View>
-          </View>
-        ))}
+              <View style={[styles.dayCard, isDone && styles.dayDone, isTarget && styles.dayToday, isFuture && styles.dayFuture]}>
+                <View style={styles.dayHeader}>
+                  {isDone ? (
+                    <Text style={styles.dayLabel}>
+                       {item.dateStr ? new Date(item.dateStr).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : `Day ${item.dayNumber}`}
+                    </Text>
+                  ) : (
+                    <Text style={[styles.dayLabel, isTarget && styles.dayLabelToday]}>Day {item.dayNumber}</Text>
+                  )}
+                  {isDone && <Badge label="COMPLETED" variant="success" />}
+                  {isTarget && <Badge label="TARGET" variant="primary" />}
+                </View>
+                
+                <Text style={[styles.dayTitle, isFuture && styles.dayTitleFuture]} numberOfLines={2}>
+                  {FOCUS_ICONS[item.focusType] || '📋'}  {item.title}
+                </Text>
 
-        {/* Render Today (Adaptive Target) */}
-        <View style={styles.tlItem}>
-          <View style={styles.tlTrack}>
-            <View style={[styles.tlDot, styles.dotToday]} />
-            <View style={[styles.tlLine]} />
-          </View>
-          <View style={[styles.dayCard, styles.dayToday]}>
-            <View style={styles.dayHeader}>
-              <Text style={styles.dayLabelToday}>Today's Session</Text>
-              <Badge label="TARGET" variant="primary" />
+                <Text style={styles.dayFocus}>
+                  {isDone && item.difficulty 
+                    ? `Effort: ${item.difficulty.toUpperCase()}`
+                    : item.focusType.replace('_', ' ').toUpperCase()}
+                </Text>
+              </View>
             </View>
-            <Text style={styles.dayTitle} numberOfLines={2}>
-              {FOCUS_ICONS[adaptiveState.workoutType] || '📋'}  {adaptiveState.dayDetail.title}
-            </Text>
-            <Text style={styles.dayFocus}>{adaptiveState.workoutType.replace('_', ' ').toUpperCase()}</Text>
-          </View>
-        </View>
-
-        {/* Render Future Projection */}
-        <View style={styles.tlItem}>
-          <View style={styles.tlTrack}>
-            <View style={[styles.tlDot, styles.dotFuture]} />
-          </View>
-          <View style={[styles.dayCard, styles.dayFuture]}>
-            <View style={styles.dayHeader}>
-              <Text style={styles.dayLabel}>Upcoming</Text>
-            </View>
-            <Text style={styles.dayTitleFuture} numberOfLines={1}>
-              Adaptive Intelligence Computing...
-            </Text>
-          </View>
-        </View>
+          );
+        })}
 
       </SectionBlock>
-
     </ScrollView>
   );
 };
@@ -98,8 +79,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bgPrimary },
   center: { justifyContent: 'center', alignItems: 'center' },
   content: { padding: spacing.screenPadding, paddingTop: 56, paddingBottom: SCROLL_BOTTOM_PADDING },
-  emptyText: { ...fonts.body, color: palette.textMuted },
-
+  
   header: { marginBottom: spacing.innerSm },
   caption: { ...fonts.badge, color: palette.primary, marginBottom: spacing.xs },
   title: { ...fonts.screenTitle, color: palette.textPrimary },
