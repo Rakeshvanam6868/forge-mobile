@@ -1,6 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../core/supabase/client';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { useUserProfile } from '../../onboarding/hooks/useUserProfile';
+import { generateProgram } from '../services/programGenerator';
+import { useEffect, useState } from 'react';
 
 export type Program = {
   id: string;
@@ -19,8 +22,11 @@ export type Program = {
  */
 export const useCurrentProgram = () => {
   const { user } = useAuth();
+  const { profile } = useUserProfile();
+  const queryClient = useQueryClient();
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['program', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -36,6 +42,32 @@ export const useCurrentProgram = () => {
       return data as Program | null;
     },
     enabled: !!user?.id,
-    staleTime: Infinity, // program doesn't change
   });
+
+  // 9️⃣ NO PROGRAM EDGE CASE (Auto-Regenerate)
+  useEffect(() => {
+    if (query.isSuccess && !query.data && profile?.onboarding_completed && !isRegenerating) {
+      setIsRegenerating(true);
+      generateProgram(
+        user!.id,
+        profile.goal,
+        profile.level,
+        profile.environment,
+        profile.diet_type || 'Any'
+      )
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['program', user?.id] });
+          setIsRegenerating(false);
+        })
+        .catch((err) => {
+          console.error('Auto-regeneration failed:', err);
+          setIsRegenerating(false);
+        });
+    }
+  }, [query.isSuccess, query.data, profile, isRegenerating, user, queryClient]);
+
+  return {
+    ...query,
+    isLoading: query.isLoading || isRegenerating || (query.isSuccess && !query.data && profile?.onboarding_completed),
+  };
 };

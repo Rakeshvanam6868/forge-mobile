@@ -8,14 +8,17 @@ export type DailyLogRow = {
   id: string;
   user_id: string;
   log_date: string;
-  completed: boolean;
-  energy: number;
-  created_at: string;
+  status: 'completed' | 'skipped' | string;
+  is_skipped: boolean;
+  energy: string;
+  plan_day_id?: string;
+  difficulty?: 'easy' | 'perfect' | 'hard';
+  completed_at?: string;
 };
 
 export type GridDay = {
   date: string;
-  status: 'completed' | 'missed' | 'missed_long' | 'today' | 'before_program';
+  status: 'completed' | 'skipped' | 'missed' | 'missed_long' | 'today' | 'before_program';
 };
 
 // ──────────────────────────────────────────────
@@ -23,62 +26,24 @@ export type GridDay = {
 // ──────────────────────────────────────────────
 
 /**
- * Derive the current program day from the total number of completed days.
- * USER-CONTROLLED: Day advances ONLY when user completes a workout.
- *
- * totalCompleted = 0 → Day 1 (hasn't done anything yet)
- * totalCompleted = 1 → Day 2 (did Day 1, now on Day 2)
- * totalCompleted = 7 → Day 8 (completed full cycle, starting second)
- */
-export const getProgramDay = (totalCompleted: number): number => {
-  return totalCompleted + 1;
-};
-
-/**
- * Map a program day to a 1-7 workout cycle day.
- * Day 1 → workout 1, Day 7 → workout 7, Day 8 → workout 1, etc.
- */
-export const getWorkoutDayNumber = (totalCompleted: number): number => {
-  return (totalCompleted % 7) + 1;
-};
-
-/**
- * Pure function: derive program progress from log count only.
- * This is the SINGLE source of truth for program position.
- *
- * programDay = totalCompleted + 1
- * currentWeekNumber = ceil(programDay / 7)   (1-4, wraps at 28)
- * dayNumberInWeek = ((programDay - 1) % 7) + 1  (1-7)
- */
-export type ProgramProgress = {
-  programDay: number;
-  currentWeekNumber: number;
-  dayNumberInWeek: number;
-};
-
-export const getProgramProgress = (totalCompleted: number): ProgramProgress => {
-  const programDay = totalCompleted + 1;
-  // Wrap within 28-day (4-week) cycle
-  const dayInCycle = ((programDay - 1) % 28) + 1;
-  const currentWeekNumber = Math.ceil(dayInCycle / 7);
-  const dayNumberInWeek = ((dayInCycle - 1) % 7) + 1;
-  return { programDay, currentWeekNumber, dayNumberInWeek };
-};
-
-/**
  * Check if today has a completed log.
  */
 export const isTodayCompleted = (logs: DailyLogRow[]): boolean => {
   const todayStr = toDateString(new Date());
-  return logs.some((l) => l.log_date === todayStr && l.completed === true);
+  return logs.some((l) => l.log_date === todayStr && l.status === 'completed');
 };
 
 /**
- * Check if yesterday was missed.
- * RULES:
- *  - If yesterday is BEFORE the user's program_start_date → NOT missed
- *  - If the user has zero completed days ever → NOT missed (brand new)
- *  - Otherwise, check if yesterday has a completed log
+ * Check if today was explicitly skipped.
+ */
+export const isTodaySkipped = (logs: DailyLogRow[]): boolean => {
+  const todayStr = toDateString(new Date());
+  return logs.some((l) => l.log_date === todayStr && l.is_skipped === true);
+};
+
+/**
+ * Check if yesterday was missed without action.
+ * A miss is when yesterday had NO log at all.
  */
 export const wasMissedYesterday = (
   logs: DailyLogRow[],
@@ -92,66 +57,62 @@ export const wasMissedYesterday = (
   const start = new Date(programStartDate + 'T00:00:00');
   start.setHours(0, 0, 0, 0);
 
-  // Yesterday is before their program started — not a miss
   if (yesterday.getTime() < start.getTime()) return false;
 
-  // Brand new user with no completed logs — don't show missed
-  const hasAnyCompletedLog = logs.some((l) => l.completed);
-  if (!hasAnyCompletedLog) return false;
-
-  // Check if yesterday specifically has a completed log
   const yesterdayLog = logs.find((l) => l.log_date === yesterdayStr);
-  return !yesterdayLog || !yesterdayLog.completed;
+  return !yesterdayLog; // True if completely missing
 };
 
 /**
- * Calculate the current streak.
- * Streak = consecutive COMPLETED calendar days going backwards.
- *
- * EDGE CASES:
- *  - Today not yet completed → check from yesterday backwards
- *  - Today completed → count today, then check yesterday backwards
- *  - Only counts days >= programStartDate
- *  - User completed 3 consecutive days → streak = 3
- *  - User missed 1 day in between → streak resets to days after the gap
+ * Calculate the current streak with Grace Period logic.
+ * A day counts if: completed OR explicitly skipped.
+ * Missed day without action -> Grace state (protects 1 day max).
+ * 2 consecutive misses -> Streak reset.
  */
 export const calculateStreak = (
   logs: DailyLogRow[],
   programStartDate: string
 ): number => {
-  const logDates = new Set(
-    logs.filter((l) => l.completed).map((l) => l.log_date)
+  const activeDates = new Set(
+    logs.filter((l) => l.status === 'completed' || l.is_skipped).map((l) => l.log_date)
   );
 
   const start = new Date(programStartDate + 'T00:00:00');
   start.setHours(0, 0, 0, 0);
 
   let streak = 0;
+  let graceUsed = false;
+  
   const cursor = new Date();
   cursor.setHours(0, 0, 0, 0);
   const todayStr = toDateString(cursor);
 
-  // If today has a completed log, count it and move to yesterday
-  // If today is NOT completed, skip today (day isn't over yet) and start from yesterday
-  if (logDates.has(todayStr)) {
+  // If today is active, count it. Otherwise, ignore today (it's not over yet).
+  if (activeDates.has(todayStr)) {
     streak++;
-    cursor.setDate(cursor.getDate() - 1);
-  } else {
-    cursor.setDate(cursor.getDate() - 1);
   }
+  
+  // Start walking backwards from yesterday
+  cursor.setDate(cursor.getDate() - 1);
 
-  // Now walk backwards from yesterday (or day before if today counted)
   for (let i = 0; i < 365; i++) {
     if (cursor.getTime() < start.getTime()) break;
 
     const dateStr = toDateString(cursor);
 
-    if (logDates.has(dateStr)) {
+    if (activeDates.has(dateStr)) {
       streak++;
-      cursor.setDate(cursor.getDate() - 1);
+      graceUsed = false; // Reset grace period upon a successful active day
     } else {
-      break; // Gap found, streak ends
+      // Missing day
+      if (!graceUsed) {
+        graceUsed = true; // Protect this 1 day
+      } else {
+        break; // 2nd consecutive miss, streak broken
+      }
     }
+    
+    cursor.setDate(cursor.getDate() - 1);
   }
 
   return streak;
@@ -166,7 +127,7 @@ export const calculateCompletionInPeriod = (
 ): { completed: number; total: number } => {
   const period = getLastNDays(days);
   const logDates = new Set(
-    logs.filter((l) => l.completed).map((l) => l.log_date)
+    logs.filter((l) => l.status === 'completed').map((l) => l.log_date)
   );
 
   let completed = 0;
@@ -177,16 +138,16 @@ export const calculateCompletionInPeriod = (
 };
 
 /**
- * Calculate the longest streak ever achieved.
- * Walks all completed log dates sorted ascending, finds max consecutive run.
- * Pure function — deterministic on same logs.
+ * Calculates the longest streak ever achieved with grace period rules.
  */
 export const calculateLongestStreak = (
   logs: DailyLogRow[],
   programStartDate: string
 ): number => {
+  // We can optimize this by just returning the current streak if we don't need historical highest,
+  // but to truly calculate historical highest mathematically with grace:
   const sortedDates = logs
-    .filter((l) => l.completed)
+    .filter((l) => l.status === 'completed' || l.is_skipped)
     .map((l) => l.log_date)
     .sort();
 
@@ -205,30 +166,25 @@ export const calculateLongestStreak = (
     if (diffDays === 1) {
       current++;
       if (current > longest) longest = current;
-    } else if (diffDays > 1) {
+    } else if (diffDays === 2) {
+      // 1 day gap (diffDays = 2), use grace
+      current++; 
+      if (current > longest) longest = current;
+    } else if (diffDays > 2) {
       current = 1;
     }
-    // diffDays === 0 means duplicate date, skip
   }
 
   return longest;
 };
 
 /**
- * Generate the full grid from program start date to today.
- * Works for any duration: 1 day, 30 days, 100 days, 365 days.
- * Each cell is tagged with a status for coloring:
- *  - 'completed'    → green
- *  - 'missed'       → yellow (1-2 consecutive)
- *  - 'missed_long'  → red (3+ consecutive)
- *  - 'today'        → blue ring (not yet done)
- *  - 'before_program' → hidden
+ * Generate the full continuity grid.
  */
 export const buildFullGrid = (
   logs: DailyLogRow[],
   programStartDate: string
 ): GridDay[] => {
-  // Generate every date from programStartDate to today
   const todayStr = toDateString(new Date());
   const allDates: string[] = [];
   const cursor = new Date(programStartDate + 'T00:00:00');
@@ -241,22 +197,20 @@ export const buildFullGrid = (
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  const logDates = new Set(
-    logs.filter((l) => l.completed).map((l) => l.log_date)
-  );
+  const logMap = new Map<string, DailyLogRow>();
+  logs.forEach(l => logMap.set(l.log_date, l));
 
-  // First pass: assign base status
   const grid: GridDay[] = allDates.map((date) => {
+    const log = logMap.get(date);
     if (date === todayStr) {
-      return {
-        date,
-        status: logDates.has(date) ? 'completed' as const : 'today' as const,
-      };
+      if (log?.status === 'completed') return { date, status: 'completed' as const };
+      if (log?.is_skipped) return { date, status: 'skipped' as const };
+      return { date, status: 'today' as const };
     }
-    return {
-      date,
-      status: logDates.has(date) ? 'completed' as const : 'missed' as const,
-    };
+    
+    if (log?.status === 'completed') return { date, status: 'completed' as const };
+    if (log?.is_skipped) return { date, status: 'skipped' as const };
+    return { date, status: 'missed' as const };
   });
 
   // Second pass: 3+ consecutive misses → red
@@ -279,3 +233,5 @@ export const buildFullGrid = (
 
   return grid;
 };
+
+// Remove totalCompleted -> programDay pure function entirely as we are moving to standard Continuity.

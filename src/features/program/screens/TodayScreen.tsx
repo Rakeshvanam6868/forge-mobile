@@ -46,10 +46,11 @@ export const TodayScreen = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [showCelebration, setShowCelebration] = useState(false);
   const justCompleted = useRef(false);
+  const [completedSessionTitle, setCompletedSessionTitle] = useState('');
 
   useEffect(() => {
-    if (adaptiveState?.programDay) logEvent('DAY_VIEWED', { programDay: adaptiveState.programDay });
-  }, [adaptiveState?.programDay]);
+    if (adaptiveState?.workoutType) logEvent('DAY_VIEWED', { workoutType: adaptiveState.workoutType });
+  }, [adaptiveState?.workoutType]);
 
   const saveHistory = useMutation({
     mutationFn: async () => {
@@ -68,8 +69,15 @@ export const TodayScreen = () => {
   });
 
   const handleDone = useCallback(() => {
-    if (completeToday.isPending || saveHistory.isPending) return;
-    completeToday.mutate(energyLevel, {
+    if (completeToday.isPending || saveHistory.isPending || !adaptiveState) return;
+    setCompletedSessionTitle(adaptiveState.dayDetail.title);
+    
+    completeToday.mutate({
+      energyLevel,
+      difficulty,
+      planDayId: adaptiveState.dayDetail.dayId,
+      status: 'completed'
+    }, {
       onSuccess: () => {
         justCompleted.current = true;
         setShowCelebration(true);
@@ -79,19 +87,28 @@ export const TodayScreen = () => {
       },
       onError: (error: any) => Alert.alert('Error completing today', error.message),
     });
-  }, [completeToday, saveHistory, energyLevel, difficulty]);
+  }, [completeToday, saveHistory, energyLevel, difficulty, adaptiveState]);
 
-  const handleSkip = () =>
-    Alert.alert('Skip Today?', 'Skipping will break your streak.', [
+  const handleSkip = () => {
+    if (!adaptiveState) return;
+    Alert.alert('Skip Today?', 'Skipping allows your body to recover and protects your streak.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Skip', style: 'destructive', onPress: () => {} },
+      { text: 'Skip', style: 'destructive', onPress: () => {
+        completeToday.mutate({ 
+          energyLevel: 2, 
+          difficulty: 'medium', 
+          planDayId: adaptiveState.dayDetail.dayId, 
+          status: 'skipped' 
+        });
+      } },
     ]);
+  };
 
   if (isLoading || !adaptiveState) {
     return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={palette.primary} /></View>;
   }
 
-  const { dayDetail, adaptivePlan, adaptedWorkouts, programDay, currentWeekNumber, dayNumberInWeek } = adaptiveState;
+  const { dayDetail, adaptivePlan, adaptedWorkouts, workoutType, uiLabel, uiSubLabel, todayCompleted, missedYesterday } = adaptiveState;
 
   if (!dayDetail) {
     return <View style={[styles.screen, styles.center]}><Text style={styles.emptyText}>No program found. Complete onboarding first.</Text></View>;
@@ -103,7 +120,7 @@ export const TodayScreen = () => {
       <CelebrationOverlay
         visible={showCelebration}
         streak={adaptiveState.streak}
-        message={`Day ${programDay} Complete!`}
+        message={completedSessionTitle ? `${completedSessionTitle} Complete!` : 'Session Complete!'}
       />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -141,9 +158,9 @@ export const TodayScreen = () => {
 
         {/* Header */}
         <View style={styles.headerBlock}>
-          <Text style={styles.headerCaption}>PROGRAM DAY {programDay}</Text>
-          <Text style={styles.headerTitle}>{FOCUS_ICONS[dayDetail.focusType] || '📋'}  {dayDetail.title}</Text>
-          <Text style={styles.headerMeta}>Week {currentWeekNumber} · Day {dayNumberInWeek}</Text>
+          <Text style={styles.headerCaption}>{todayCompleted ? 'COMPLETED SESSION' : 'UPCOMING SESSION'}</Text>
+          <Text style={styles.headerTitle}>{FOCUS_ICONS[workoutType] || '📋'}  {dayDetail.title}</Text>
+          <Text style={styles.headerMeta}>{uiSubLabel}</Text>
         </View>
 
         {/* ══════ WORKOUTS ══════ */}
@@ -204,7 +221,7 @@ export const TodayScreen = () => {
             <View style={styles.completionContent}>
               <Text style={styles.completionFlame}>🔥</Text>
               <Text style={styles.completionNum}>{adaptiveState.streak}</Text>
-              <Text style={styles.completionTitle}>Day {programDay} Complete</Text>
+              <Text style={styles.completionTitle}>Session Complete</Text>
               <Text style={styles.completionSub}>{adaptiveState.streak} day streak 🏆</Text>
             </View>
           </GradientCard>

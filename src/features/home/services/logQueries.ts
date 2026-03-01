@@ -3,22 +3,18 @@ import { toDateString } from '../../../core/utils/dateUtils';
 import { DailyLogRow } from './consistencyEngine';
 
 // ──────────────────────────────────────────────
-// Supabase Query Functions — targets plan_logs table
+// Supabase Query Functions — targets daily_logs table
 // ──────────────────────────────────────────────
 
 /**
- * Fetch ALL plan_logs for a user.
+ * Fetch ALL daily_logs for a user.
  * SINGLE QUERY — eliminates race conditions between count and logs.
- *
- * For a fitness app, even after 1 year of daily use = 365 rows ≈ 36KB.
- * This is trivially small and avoids the need for a separate count query.
  */
 export const getAllLogs = async (userId: string): Promise<DailyLogRow[]> => {
   const { data, error } = await supabase
-    .from('plan_logs')
+    .from('daily_logs')
     .select('*')
     .eq('user_id', userId)
-    .eq('completed', true)
     .order('log_date', { ascending: false });
 
   if (error) throw error;
@@ -26,27 +22,33 @@ export const getAllLogs = async (userId: string): Promise<DailyLogRow[]> => {
 };
 
 /**
- * Insert or upsert a plan log for today.
- * Uses UNIQUE(user_id, log_date) to prevent duplicates.
+ * Insert or upsert a session log for today.
+ * Handles both completion and explicit SKIPs.
  */
 export const upsertTodayLog = async (
   userId: string,
-  completed: boolean,
-  energy: number
+  planDayId: string | null,
+  status: 'completed' | 'skipped',
+  energy: string,
+  difficulty?: string
 ) => {
   const logDate = toDateString(new Date());
 
+  const payload: any = {
+    user_id: userId,
+    log_date: logDate,
+    status,
+    energy,
+    is_skipped: status === 'skipped',
+  };
+
+  if (planDayId) payload.plan_day_id = planDayId;
+  if (difficulty) payload.difficulty = difficulty;
+  if (status === 'completed') payload.completed_at = new Date().toISOString();
+
   const { data, error } = await supabase
-    .from('plan_logs')
-    .upsert(
-      {
-        user_id: userId,
-        log_date: logDate,
-        completed,
-        energy,
-      },
-      { onConflict: 'user_id, log_date' }
-    )
+    .from('daily_logs')
+    .upsert(payload, { onConflict: 'user_id, log_date' })
     .select()
     .single();
 

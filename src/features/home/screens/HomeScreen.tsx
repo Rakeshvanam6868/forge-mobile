@@ -34,7 +34,7 @@ export const HomeScreen = () => {
           <Text style={styles.heroFlame}>🔥</Text>
           <Text style={styles.heroNum}>{state.streak}</Text>
           <Text style={styles.heroLabel}>Day Streak</Text>
-          <Text style={styles.heroMeta}>Program Day {state.currentProgramDay} · Best: {state.longestStreak}</Text>
+          <Text style={styles.heroMeta}>Adaptive Timeline · Best: {state.longestStreak}</Text>
         </View>
       </GradientCard>
 

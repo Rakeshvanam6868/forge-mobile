@@ -98,7 +98,7 @@ export const RootNavigator = () => {
 
   return (
     <NavigationContainer>
-      {session ? <MainNavigator hasProfile={!!profile} /> : <AuthNavigator />}
+      {session ? <MainNavigator hasProfile={!!profile?.onboarding_completed} /> : <AuthNavigator />}
     </NavigationContainer>
   );
 };

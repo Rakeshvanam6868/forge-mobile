@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useCurrentProgram } from '../hooks/useProgram';
-import { useCurrentWeek } from '../hooks/useWeekPlan';
 import { useProgramState } from '../../home/hooks/useProgramState';
+import { useAdaptiveDay } from '../hooks/useAdaptiveDay';
 import { Badge } from '../../../core/components/Badge';
 import { SectionBlock } from '../../../core/components/SectionBlock';
 import { GreetingHeader } from '../../../core/components/GreetingHeader';
@@ -10,26 +9,17 @@ import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/de
 import { SCROLL_BOTTOM_PADDING } from '../../../core/theme/layout';
 
 const FOCUS_ICONS: Record<string, string> = { strength: '💪', cardio: '🏃', mobility: '🧘', rest: '😴' };
-const CATEGORY_ICONS: Record<string, string> = { protein: '🥩', carbs: '🍚', vegetables: '🥦', essentials: '🧴' };
 
 export const WeekScreen = () => {
-  const { data: program, isLoading: progLoading } = useCurrentProgram();
   const { state, isLoading: stateLoading } = useProgramState();
-  const { programDay, currentWeekNumber, dayNumberInWeek } = state?.progress ?? { programDay: 1, currentWeekNumber: 1, dayNumberInWeek: 1 };
-  const { data: weekData, isLoading: weekLoading } = useCurrentWeek(program?.id, currentWeekNumber);
+  const { adaptiveState, isLoading: adaptiveLoading } = useAdaptiveDay();
 
-  if (progLoading || stateLoading || weekLoading || !state) {
+  if (stateLoading || adaptiveLoading || !state || !adaptiveState) {
     return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={palette.primary} /></View>;
   }
-  if (!weekData) {
-    return <View style={[styles.screen, styles.center]}><Text style={styles.emptyText}>No program found.</Text></View>;
-  }
 
-  const groceryGroups: Record<string, string[]> = {};
-  weekData.groceries.forEach((g) => {
-    if (!groceryGroups[g.category]) groceryGroups[g.category] = [];
-    groceryGroups[g.category].push(g.item_name);
-  });
+  // Build a rolling 7-day timeline (last 5 days + today + tomorrow placeholder)
+  const recentLogs = state.allLogs.slice(0, 5).reverse();
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -37,57 +27,69 @@ export const WeekScreen = () => {
       <GreetingHeader />
 
       <View style={styles.header}>
-        <Text style={styles.caption}>WEEK {currentWeekNumber}</Text>
-        <Text style={styles.title}>Your Weekly Plan</Text>
-        <Text style={styles.meta}>Program Day {programDay} · Day {dayNumberInWeek} of 7</Text>
+        <Text style={styles.caption}>ADAPTIVE ENGINE</Text>
+        <Text style={styles.title}>Continuity Timeline</Text>
+        <Text style={styles.meta}>Your rolling training history and upcoming target.</Text>
       </View>
 
       {/* ══════ TIMELINE ══════ */}
-      <SectionBlock title="Daily Plan">
-        {weekData.days.map((day, idx) => {
-          const isToday = day.day_number === dayNumberInWeek;
-          const isDone = day.day_number < dayNumberInWeek;
-          const isFuture = !isToday && !isDone;
-          const isLast = idx === weekData.days.length - 1;
-
-          return (
-            <View key={day.id} style={styles.tlItem}>
-              <View style={styles.tlTrack}>
-                <View style={[styles.tlDot, isDone && styles.dotDone, isToday && styles.dotToday, isFuture && styles.dotFuture]} />
-                {!isLast && <View style={[styles.tlLine, isDone && styles.lineDone]} />}
-              </View>
-              <View style={[styles.dayCard, isDone && styles.dayDone, isToday && styles.dayToday, isFuture && styles.dayFuture]}>
-                <View style={styles.dayHeader}>
-                  <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>Day {day.day_number}</Text>
-                  {isToday && <Badge label="TODAY" variant="primary" />}
-                  {isDone && <Badge label="DONE" variant="success" />}
-                </View>
-                <Text style={[styles.dayTitle, isFuture && styles.dayTitleFuture]} numberOfLines={2}>
-                  {FOCUS_ICONS[day.focus_type] || '📋'}  {day.title}
-                </Text>
-                <Text style={styles.dayFocus}>{day.focus_type.toUpperCase()}</Text>
-              </View>
+      <SectionBlock title="Training Flow">
+        
+        {/* Render History */}
+        {recentLogs.map((log, idx) => (
+          <View key={log.id} style={styles.tlItem}>
+            <View style={styles.tlTrack}>
+              <View style={[styles.tlDot, styles.dotDone]} />
+              <View style={[styles.tlLine, styles.lineDone]} />
             </View>
-          );
-        })}
-      </SectionBlock>
-
-      {/* ══════ GROCERY LIST ══════ */}
-      <SectionBlock title="🛒 Grocery List">
-        <View style={styles.groceryCard}>
-          {Object.entries(groceryGroups).map(([category, items], idx) => (
-            <View key={category} style={[styles.gSection, idx > 0 && styles.gDivider]}>
-              <View style={styles.gCatRow}>
-                <View style={styles.iconWrap}><Text style={styles.iconInner}>{CATEGORY_ICONS[category] || '📦'}</Text></View>
-                <Text style={styles.gCatName}>{category.charAt(0).toUpperCase() + category.slice(1)}</Text>
+            <View style={[styles.dayCard, styles.dayDone]}>
+              <View style={styles.dayHeader}>
+                <Text style={styles.dayLabel}>{new Date(log.log_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+                {log.status === 'completed' && <Badge label="COMPLETED" variant="success" />}
+                {log.is_skipped && <Badge label="SKIPPED" variant="warning" />}
               </View>
-              {items.map((item, i) => (
-                <View key={i} style={styles.gItemRow}><Text style={styles.gItemName}>{item}</Text></View>
-              ))}
+              <Text style={styles.dayTitle} numberOfLines={1}>
+                {log.difficulty === 'hard' ? 'Hard Effort' : log.difficulty === 'easy' ? 'Active Recovery' : 'Solid Session'}
+              </Text>
             </View>
-          ))}
+          </View>
+        ))}
+
+        {/* Render Today (Adaptive Target) */}
+        <View style={styles.tlItem}>
+          <View style={styles.tlTrack}>
+            <View style={[styles.tlDot, styles.dotToday]} />
+            <View style={[styles.tlLine]} />
+          </View>
+          <View style={[styles.dayCard, styles.dayToday]}>
+            <View style={styles.dayHeader}>
+              <Text style={styles.dayLabelToday}>Today's Session</Text>
+              <Badge label="TARGET" variant="primary" />
+            </View>
+            <Text style={styles.dayTitle} numberOfLines={2}>
+              {FOCUS_ICONS[adaptiveState.workoutType] || '📋'}  {adaptiveState.dayDetail.title}
+            </Text>
+            <Text style={styles.dayFocus}>{adaptiveState.workoutType.replace('_', ' ').toUpperCase()}</Text>
+          </View>
         </View>
+
+        {/* Render Future Projection */}
+        <View style={styles.tlItem}>
+          <View style={styles.tlTrack}>
+            <View style={[styles.tlDot, styles.dotFuture]} />
+          </View>
+          <View style={[styles.dayCard, styles.dayFuture]}>
+            <View style={styles.dayHeader}>
+              <Text style={styles.dayLabel}>Upcoming</Text>
+            </View>
+            <Text style={styles.dayTitleFuture} numberOfLines={1}>
+              Adaptive Intelligence Computing...
+            </Text>
+          </View>
+        </View>
+
       </SectionBlock>
+
     </ScrollView>
   );
 };
@@ -128,24 +130,4 @@ const styles = StyleSheet.create({
   dayTitle: { ...fonts.cardTitle, color: palette.textPrimary, marginTop: spacing.xs },
   dayTitleFuture: { color: palette.textMuted },
   dayFocus: { ...fonts.caption, color: palette.textMuted, marginTop: 2, textTransform: 'uppercase' },
-
-  iconWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: palette.iconTint,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  iconInner: { fontSize: 20 },
-
-  groceryCard: {
-    backgroundColor: palette.bgSecondary,
-    borderRadius: radius.card,
-    padding: spacing.cardPadding,
-    ...shadows.level1,
-  },
-  gSection: { marginBottom: spacing.lg },
-  gDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.borderSubtle, paddingTop: spacing.lg },
-  gCatRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.innerMd, marginBottom: spacing.innerSm },
-  gCatName: { ...fonts.cardTitle, color: palette.textPrimary },
-  gItemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs, paddingLeft: spacing['5xl'] },
-  gItemName: { ...fonts.body, color: palette.textSecondary },
 });

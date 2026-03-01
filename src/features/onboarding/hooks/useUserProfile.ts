@@ -2,55 +2,53 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../core/supabase/client';
 import { useAuth } from '../../auth/hooks/useAuth';
 
-export type UserProfile = {
+export interface UserProfile {
   id: string;
   goal: string;
   level: string;
   environment: string;
   diet_type: string;
-  program_start_date: string;
+  weekly_frequency: string;
+  last_workout_type: string;
+  onboarding_completed: boolean;
+  program_start_date?: string;
   created_at?: string;
-};
+}
 
 export const useUserProfile = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch user profile
+  // Fetch profile
   const { data: profile, isLoading } = useQuery({
     queryKey: ['userProfile', user?.id],
     queryFn: async () => {
-      if (!user?.id) throw new Error('No user id');
-      
+      if (!user) return null;
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle();
-        
-      if (error) {
+        .single();
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "Row not found"
         throw error;
       }
-      
-      // maybeSingle returns null if no rows found
       return data as UserProfile | null;
     },
-    enabled: !!user?.id,
+    enabled: !!user,
   });
 
-  // Create user profile
-  const createProfile = useMutation({
-    mutationFn: async (newProfile: Omit<UserProfile, 'id' | 'created_at'>) => {
-      if (!user?.id) throw new Error('No user id');
-
-      const profileData = {
-        id: user.id,
-        ...newProfile,
-      };
-
+  // Upsert profile
+  const upsertProfile = useMutation({
+    mutationFn: async (profileData: Partial<UserProfile>) => {
+      if (!user) throw new Error('No user logged in');
+      
       const { data, error } = await supabase
         .from('users')
-        .insert(profileData)
+        .upsert({ 
+          id: user.id, 
+          ...profileData 
+        })
         .select()
         .single();
 
@@ -58,17 +56,13 @@ export const useUserProfile = () => {
       return data;
     },
     onSuccess: (data) => {
-      // Update cache
       queryClient.setQueryData(['userProfile', user?.id], data);
-      
-      // Invalidate the todayPlan query so the Home screen immediately fetches the new plan
-      queryClient.invalidateQueries({ queryKey: ['todayPlan'] });
     },
   });
 
   return {
     profile,
     isLoading,
-    createProfile,
+    upsertProfile,
   };
 };

@@ -5,36 +5,33 @@ import { useUserProfile } from '../../onboarding/hooks/useUserProfile';
 import { getAllLogs, upsertTodayLog } from '../services/logQueries';
 import { toDateString } from '../../../core/utils/dateUtils';
 import {
-  getProgramDay,
-  getWorkoutDayNumber,
-  getProgramProgress,
   isTodayCompleted,
+  isTodaySkipped,
   wasMissedYesterday,
   calculateStreak,
   calculateLongestStreak,
   calculateCompletionInPeriod,
   buildFullGrid,
   GridDay,
-  ProgramProgress,
+  DailyLogRow,
 } from '../services/consistencyEngine';
 import { trackEvent } from '../../retention/services/retentionService';
 
 export type ProgramState = {
-  currentProgramDay: number;
-  workoutDayNumber: number;
   todayCompleted: boolean;
+  todaySkipped: boolean;
   missedYesterday: boolean;
   completedThisWeek: number;
   completedThisMonth: number;
   streak: number;
   longestStreak: number;
   grid: GridDay[];
-  progress: ProgramProgress;
+  allLogs: DailyLogRow[];
 };
 
 export const useProgramState = () => {
   const { user } = useAuth();
-  const { profile } = useUserProfile();
+  const { profile, isLoading: isProfileLoading } = useUserProfile();
   const queryClient = useQueryClient();
 
   // SINGLE QUERY — fetches ALL completed logs
@@ -51,12 +48,8 @@ export const useProgramState = () => {
     const startDate = profile.program_start_date
       || (profile.created_at ? profile.created_at.split('T')[0] : toDateString(new Date()));
 
-    const totalCompleted = allLogs.length;
-    const currentProgramDay = getProgramDay(totalCompleted);
-    const workoutDayNumber = getWorkoutDayNumber(totalCompleted);
-    const progress = getProgramProgress(totalCompleted);
-
     const todayCompleted = isTodayCompleted(allLogs);
+    const todaySkipped = isTodaySkipped(allLogs);
     const missedYesterday = wasMissedYesterday(allLogs, startDate);
     const streak = calculateStreak(allLogs, startDate);
     const longestStreak = calculateLongestStreak(allLogs, startDate);
@@ -65,24 +58,33 @@ export const useProgramState = () => {
     const grid = buildFullGrid(allLogs, startDate);
 
     return {
-      currentProgramDay,
-      workoutDayNumber,
       todayCompleted,
+      todaySkipped,
       missedYesterday,
       completedThisWeek: weekly.completed,
       completedThisMonth: monthly.completed,
       streak,
       longestStreak,
       grid,
-      progress,
+      allLogs,
     };
   }, [profile, allLogs]);
 
-  // Mutation: complete today
   const completeToday = useMutation({
-    mutationFn: async (energyLevel: number) => {
+    mutationFn: async ({
+      energyLevel,
+      difficulty = 'perfect',
+      planDayId = null,
+      status = 'completed',
+    }: {
+      energyLevel: number;
+      difficulty?: string;
+      planDayId?: string | null;
+      status?: 'completed' | 'skipped';
+    }) => {
       if (!user?.id) throw new Error('No user');
-      return upsertTodayLog(user.id, true, energyLevel);
+      const energyMap = { 1: 'low', 2: 'medium', 3: 'high' } as Record<number, string>;
+      return upsertTodayLog(user.id, planDayId, status, energyMap[energyLevel] || 'medium', difficulty);
     },
     onSuccess: () => {
       // Invalidate logs → everything re-derives
@@ -95,7 +97,7 @@ export const useProgramState = () => {
 
       // Track retention events (fire-and-forget)
       if (user?.id) {
-        trackEvent(user.id, 'DAY_COMPLETED', { programDay: state?.currentProgramDay });
+        trackEvent(user.id, 'DAY_COMPLETED', { streak: state?.streak });
         if (state?.missedYesterday) {
           trackEvent(user.id, 'STREAK_BROKEN', { previousStreak: state?.streak });
         }
@@ -103,9 +105,11 @@ export const useProgramState = () => {
     },
   });
 
+  const isHydrating = isLoading || isProfileLoading || !profile || !allLogs || !state;
+
   return {
     state,
-    isLoading,
+    isLoading: isHydrating,
     completeToday,
   };
 };

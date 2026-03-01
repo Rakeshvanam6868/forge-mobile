@@ -1,0 +1,199 @@
+export type TrainingLevel = 'beginner' | 'intermediate' | 'advanced';
+export type WeeklyFrequency = '0' | '1-2' | '3-4' | '5+';
+export type WorkoutType =
+  | 'push'
+  | 'pull'
+  | 'legs'
+  | 'full'
+  | 'cardio'
+  | 'cardio_core'
+  | 'upper_hypertrophy'
+  | 'mobility'
+  | 'rest'
+  | 'none';
+
+export type Goal = 'fat_loss' | 'muscle_gain' | 'recomp' | 'general_fitness';
+
+export type UserTrainingState = {
+  level: TrainingLevel;
+  frequency: WeeklyFrequency;
+  lastWorkout: WorkoutType;
+  goal: Goal;
+};
+
+export type UserWorkoutHistory = {
+  lastCompletedProgramDay?: number;
+  lastCompletedWorkoutType?: WorkoutType;
+  lastCompletionDate?: string; // YYYY-MM-DD format
+  skippedDaysInRow?: number;
+  lastDifficulty?: 'easy' | 'perfect' | 'hard' | string;
+  lastEnergy?: 'low' | 'medium' | 'high' | string;
+};
+
+export type AdaptiveWorkoutOutput = {
+  programIndex: number;
+  workoutType: WorkoutType;
+  reason: string;
+  recoveryOptimized: boolean;
+  volumeModifier: 'reduced' | 'normal' | 'intense';
+  uiLabel: string;
+  uiSubLabel: string;
+};
+
+// DO NOT MODIFY
+export const PROGRAM_DAYS = [
+  'push',
+  'pull',
+  'legs',
+  'cardio_core',
+  'upper_hypertrophy',
+  'mobility',
+  'rest',
+] as const;
+
+const GOAL_LABELS: Record<Goal, string> = {
+  muscle_gain: 'Progressive overload focus',
+  fat_loss: 'Calorie burn optimization',
+  recomp: 'Performance & composition balance',
+  general_fitness: 'Consistency focus',
+};
+
+const LEVEL_VOLUME: Record<TrainingLevel, 'reduced' | 'normal' | 'intense'> = {
+  beginner: 'reduced',
+  intermediate: 'normal',
+  advanced: 'intense',
+};
+
+/**
+ * Ensures date string is strictly YYYY-MM-DD
+ */
+function normalizeDate(d: string | Date): string {
+  if (typeof d === 'string') return d.split('T')[0];
+  return d.toISOString().split('T')[0];
+}
+
+/**
+ * Calculates days between two YYYY-MM-DD strings.
+ */
+function getDaysDifference(d1: string, d2: string): number {
+  const time1 = new Date(d1).getTime();
+  const time2 = new Date(d2).getTime();
+  return Math.floor((time1 - time2) / (1000 * 3600 * 24));
+}
+
+function getProgramIndexForType(type: WorkoutType): number {
+  // Try exact match
+  const idx = PROGRAM_DAYS.indexOf(type as any);
+  if (idx !== -1) return idx;
+  
+  // Fallbacks for types not explicitly in array
+  if (type === 'cardio') return PROGRAM_DAYS.indexOf('cardio_core');
+  if (type === 'full') return 0; // mapped to start if needed
+  if (type === 'none') return 0;
+  return 0;
+}
+
+export function computeNextWorkout(
+  state: UserTrainingState,
+  history: UserWorkoutHistory,
+  todayDateInput: string | Date
+): AdaptiveWorkoutOutput {
+  const today = normalizeDate(todayDateInput);
+  
+  // 1️⃣ HARD REALITY (HISTORY > ONBOARDING)
+  const hasHistory = !!history.lastCompletedWorkoutType && !!history.lastCompletionDate;
+  const lastType: WorkoutType = hasHistory
+    ? history.lastCompletedWorkoutType!
+    : state.lastWorkout;
+  
+  let daysInactivity = 0;
+  if (hasHistory && history.lastCompletionDate) {
+    daysInactivity = getDaysDifference(today, normalizeDate(history.lastCompletionDate));
+  }
+
+  // Handle edge case: User trained today already
+  if (daysInactivity === 0 && hasHistory) {
+    return {
+      programIndex: getProgramIndexForType('mobility'),
+      workoutType: 'mobility',
+      reason: 'Already trained today',
+      recoveryOptimized: true,
+      volumeModifier: 'reduced',
+      uiLabel: GOAL_LABELS[state.goal || 'general_fitness'],
+      uiSubLabel: 'Active recovery (trained today)',
+    };
+  }
+
+  // 3️⃣ INACTIVITY DETECTION
+  if (daysInactivity >= 7) {
+    return {
+      programIndex: getProgramIndexForType('full'),
+      workoutType: 'full',
+      reason: 'Welcome back — restarting with a smart low-volume session',
+      recoveryOptimized: true,
+      volumeModifier: 'reduced', // Forced reduction
+      uiLabel: GOAL_LABELS[state.goal || 'general_fitness'],
+      uiSubLabel: 'Welcome back — restarting with a smart low-volume session',
+    };
+  }
+  // Determine standard volume based on level
+  let volumeModifier = LEVEL_VOLUME[state.level || 'beginner'];
+
+  // PART 5 — ADAPTIVE CONTINUITY FEEDBACK
+  if (history.lastDifficulty === 'hard') {
+    volumeModifier = 'reduced';
+  } else if (history.lastEnergy === 'high' && state.level === 'advanced') {
+    volumeModifier = 'intense';
+  } else if (history.lastEnergy === 'high' && state.level === 'intermediate') {
+    volumeModifier = 'normal';
+  }
+
+  // Base Sequence Map
+  let nextType: WorkoutType = 'push';
+  
+  // 4️⃣ NEW USER (NO HISTORY) + STANDARD ROTATION
+  if (state.frequency === '0' || state.frequency === '1-2') {
+    // Low frequency rotation
+    if (lastType === 'full') nextType = 'cardio_core';
+    else if (lastType === 'cardio_core' || lastType === 'cardio') nextType = 'mobility';
+    else if (lastType === 'mobility') nextType = 'full';
+    else nextType = 'full'; // default start for low freq
+  } else if (state.frequency === '5+') {
+    // High frequency rotation (skip early mobility, allow push->pull)
+    if (lastType === 'push') nextType = 'pull';
+    else if (lastType === 'pull') nextType = 'legs';
+    else if (lastType === 'legs') nextType = 'upper_hypertrophy';
+    else if (lastType === 'upper_hypertrophy') nextType = 'cardio_core';
+    else if (lastType === 'cardio_core' || lastType === 'cardio') nextType = 'push'; // Skip mobility
+    else if (lastType === 'mobility') nextType = 'push';
+    else if (lastType === 'rest') nextType = 'push';
+    else if (lastType === 'none') nextType = 'push';
+    else nextType = 'push';
+  } else {
+    // Normal 3-4 frequency rotation
+    if (lastType === 'push') nextType = 'pull';
+    else if (lastType === 'pull') nextType = 'legs';
+    else if (lastType === 'legs') nextType = 'upper_hypertrophy';
+    else if (lastType === 'upper_hypertrophy') nextType = 'cardio_core';
+    else if (lastType === 'cardio_core' || lastType === 'cardio') nextType = 'mobility';
+    else if (lastType === 'mobility') nextType = 'push';
+    else if (lastType === 'rest') nextType = 'push';
+    else if (lastType === 'full') nextType = 'rest';
+    else if (lastType === 'none') nextType = 'push';
+    else nextType = 'push';
+  }
+
+  // Edge case: Corrupted onboarding data safeguard
+  let safeGoal = state.goal;
+  if (!safeGoal) safeGoal = 'general_fitness';
+
+  return {
+    programIndex: getProgramIndexForType(nextType),
+    workoutType: nextType,
+    reason: hasHistory ? 'Based on your last session' : 'Based on onboarding profile',
+    recoveryOptimized: nextType === 'mobility' || nextType === 'rest',
+    volumeModifier,
+    uiLabel: GOAL_LABELS[safeGoal],
+    uiSubLabel: hasHistory ? 'Based on your last session' : 'Optimized for your profile',
+  };
+}
