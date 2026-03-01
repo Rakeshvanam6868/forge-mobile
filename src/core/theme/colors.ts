@@ -1,12 +1,23 @@
+/**
+ * Colors — re-exported from design tokens for backward compatibility.
+ * All new code should import from designTokens directly.
+ */
+import { palette } from './designTokens';
+
 export const colors = {
-  primary: '#2563EB',      // Blue
-  primaryDark: '#1D4ED8',
-  background: '#FFFFFF',
-  surface: '#F8FAFC',
-  text: '#0F172A',         // Slate 900
-  textSecondary: '#64748B',// Slate 500
-  border: '#E2E8F0',       // Slate 200
-  error: '#EF4444',        // Red 500
-  success: '#22C55E',      // Green 500
-  inputBackground: '#F1F5F9', // Slate 100
+  primary: palette.primary,
+  primaryDark: palette.primaryDark,
+  primaryLight: palette.primaryLight,
+  background: palette.background,
+  surface: palette.surface,
+  card: palette.card,
+  text: palette.text,
+  textSecondary: palette.textSecondary,
+  textTertiary: palette.textTertiary,
+  border: palette.border,
+  error: palette.danger,
+  success: palette.success,
+  warning: palette.warning,
+  info: palette.info,
+  inputBackground: palette.inputBackground,
 };

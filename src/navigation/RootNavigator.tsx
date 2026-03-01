@@ -13,7 +13,9 @@ import { TodayScreen } from '../features/program/screens/TodayScreen';
 import { WeekScreen } from '../features/program/screens/WeekScreen';
 import { HomeScreen } from '../features/home/screens/HomeScreen';
 import { AnalyticsScreen } from '../features/analytics/screens/AnalyticsScreen';
-import { colors } from '../core/theme/colors';
+import { useRetention } from '../features/retention/hooks/useRetention';
+import { palette, fonts, spacing, radius, shadows } from '../core/theme/designTokens';
+import { TAB_BAR_HEIGHT } from '../core/theme/layout';
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -26,67 +28,55 @@ const AuthNavigator = () => (
   </AuthStack.Navigator>
 );
 
-import { useRetention } from '../features/retention/hooks/useRetention';
-
-const TabIcon = ({ label, focused }: { label: string; focused: boolean }) => (
-  <Text style={{ fontSize: 11, color: focused ? colors.primary : colors.textSecondary, fontWeight: focused ? '700' : '400' }}>
-    {label}
-  </Text>
-);
+const TAB_ITEMS = [
+  { name: 'Today', icon: '🏋️', component: TodayScreen },
+  { name: 'Week', icon: '📅', component: WeekScreen },
+  { name: 'Progress', icon: '📊', component: HomeScreen },
+  { name: 'Analytics', icon: '🎯', component: AnalyticsScreen },
+];
 
 const AppTabs = () => {
-  // Track APP_OPEN once per day
   useRetention();
-
   return (
-  <Tab.Navigator
-    screenOptions={{
-      headerShown: false,
-      tabBarStyle: {
-        backgroundColor: colors.background,
-        borderTopColor: colors.border,
-        paddingTop: 6,
-        height: 56,
-      },
-      tabBarActiveTintColor: colors.primary,
-      tabBarInactiveTintColor: colors.textSecondary,
-    }}
-  >
-    <Tab.Screen
-      name="Today"
-      component={TodayScreen}
-      options={{
-        tabBarIcon: ({ focused }) => <Text style={{ fontSize: 20 }}>🏋️</Text>,
-        tabBarLabel: ({ focused }) => <TabIcon label="Today" focused={focused} />,
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: {
+          position: 'absolute',
+          bottom: 12,
+          left: 16,
+          right: 16,
+          backgroundColor: 'rgba(255,255,255,0.94)',
+          borderRadius: radius.tabBar,
+          borderTopWidth: 0,
+          height: TAB_BAR_HEIGHT,
+          paddingTop: spacing.innerSm,
+          paddingBottom: spacing.innerSm,
+          ...shadows.level2,
+        },
+        tabBarActiveTintColor: palette.primary,
+        tabBarInactiveTintColor: palette.textMuted,
+        tabBarLabelStyle: { ...fonts.caption, fontSize: 10, marginTop: 2 },
       }}
-    />
-    <Tab.Screen
-      name="Week"
-      component={WeekScreen}
-      options={{
-        tabBarIcon: ({ focused }) => <Text style={{ fontSize: 20 }}>📅</Text>,
-        tabBarLabel: ({ focused }) => <TabIcon label="Week" focused={focused} />,
-      }}
-    />
-    <Tab.Screen
-      name="Progress"
-      component={HomeScreen}
-      options={{
-        tabBarIcon: ({ focused }) => <Text style={{ fontSize: 20 }}>📊</Text>,
-        tabBarLabel: ({ focused }) => <TabIcon label="Progress" focused={focused} />,
-      }}
-    />
-    <Tab.Screen
-      name="Analytics"
-      component={AnalyticsScreen}
-      options={{
-        tabBarIcon: ({ focused }) => <Text style={{ fontSize: 20 }}>🎯</Text>,
-        tabBarLabel: ({ focused }) => <TabIcon label="Analytics" focused={focused} />,
-      }}
-    />
-  </Tab.Navigator>
+    >
+      {TAB_ITEMS.map((tab) => (
+        <Tab.Screen
+          key={tab.name}
+          name={tab.name}
+          component={tab.component}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Text style={styles.tabEmoji}>{tab.icon}</Text>
+              </View>
+            ),
+          }}
+        />
+      ))}
+    </Tab.Navigator>
   );
 };
+
 const MainNavigator = ({ hasProfile }: { hasProfile: boolean }) => (
   <MainStack.Navigator screenOptions={{ headerShown: false }}>
     {hasProfile ? (
@@ -100,15 +90,10 @@ const MainNavigator = ({ hasProfile }: { hasProfile: boolean }) => (
 export const RootNavigator = () => {
   const { session, loading: authLoading } = useAuth();
   const { profile, isLoading: profileLoading } = useUserProfile();
-
   const isAppReady = !authLoading && (!session || !profileLoading);
 
   if (!isAppReady) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <View style={styles.loadScreen}><ActivityIndicator size="large" color={palette.primary} /></View>;
   }
 
   return (
@@ -119,10 +104,13 @@ export const RootNavigator = () => {
 };
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
+  loadScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.bgPrimary },
+  tabIcon: {
+    width: 42, height: 42, borderRadius: 21,
+    alignItems: 'center', justifyContent: 'center',
   },
+  tabIconActive: {
+    backgroundColor: palette.primarySoft,
+  },
+  tabEmoji: { fontSize: 20 },
 });

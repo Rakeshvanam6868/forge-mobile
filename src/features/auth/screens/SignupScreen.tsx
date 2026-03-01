@@ -4,8 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { AuthInput } from '../components/AuthInput';
 import { AuthButton } from '../components/AuthButton';
 import { authService } from '../services/authService';
-import { colors } from '../../../core/theme/colors';
-import { typography } from '../../../core/theme/typography';
+import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 
 export const SignupScreen = () => {
   const navigation = useNavigation();
@@ -18,7 +17,6 @@ export const SignupScreen = () => {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-
     try {
       setLoading(true);
       await authService.signUp(email, password);
@@ -36,7 +34,11 @@ export const SignupScreen = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.illustrationArea}>
+          <Text style={styles.illustrationEmoji}>💪</Text>
+        </View>
+
         <View style={styles.header}>
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Start your fitness transformation today</Text>
@@ -59,19 +61,19 @@ export const SignupScreen = () => {
             secureTextEntry
           />
 
-          <AuthButton
-            title="Sign Up"
-            onPress={handleSignup}
-            loading={loading}
-            style={styles.signUpBtn}
-          />
-          
-          <AuthButton
-            title="Already have an account?"
-            variant="outline"
-            onPress={() => navigation.goBack()}
-            disabled={loading}
-          />
+          <View style={styles.buttonGroup}>
+            <AuthButton
+              title="Sign Up"
+              onPress={handleSignup}
+              loading={loading}
+            />
+            <AuthButton
+              title="Already have an account?"
+              variant="outline"
+              onPress={() => navigation.goBack()}
+              disabled={loading}
+            />
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -79,32 +81,20 @@ export const SignupScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  container: { flex: 1, backgroundColor: palette.bgPrimary },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    padding: spacing.screenPadding,
     justifyContent: 'center',
   },
-  header: {
-    marginBottom: 40,
+  illustrationArea: {
+    alignItems: 'center',
+    marginBottom: spacing['3xl'],
   },
-  title: {
-    ...typography.h1,
-    color: colors.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  form: {
-    width: '100%',
-  },
-  signUpBtn: {
-    marginTop: 16,
-    marginBottom: 8,
-  },
+  illustrationEmoji: { fontSize: 64 },
+  header: { marginBottom: spacing['3xl'] },
+  title: { ...fonts.programDayTitle, color: palette.text, marginBottom: spacing.sm },
+  subtitle: { ...fonts.body, color: palette.textSecondary, lineHeight: 22 },
+  form: { width: '100%' },
+  buttonGroup: { marginTop: spacing.lg },
 });

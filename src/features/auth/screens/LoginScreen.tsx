@@ -4,8 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { AuthInput } from '../components/AuthInput';
 import { AuthButton } from '../components/AuthButton';
 import { authService } from '../services/authService';
-import { colors } from '../../../core/theme/colors';
-import { typography } from '../../../core/theme/typography';
+import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 
 export const LoginScreen = () => {
   const navigation = useNavigation<any>();
@@ -18,11 +17,9 @@ export const LoginScreen = () => {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-
     try {
       setLoading(true);
       await authService.signIn(email, password);
-      // No need to manually navigate to Home, the Auth provider will handle it
     } catch (error: any) {
       Alert.alert('Login Failed', error.message);
     } finally {
@@ -35,7 +32,12 @@ export const LoginScreen = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* Illustration placeholder */}
+        <View style={styles.illustrationArea}>
+          <Text style={styles.illustrationEmoji}>🏋️‍♀️</Text>
+        </View>
+
         <View style={styles.header}>
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Sign in to continue your fitness journey</Text>
@@ -58,19 +60,19 @@ export const LoginScreen = () => {
             secureTextEntry
           />
 
-          <AuthButton
-            title="Sign In"
-            onPress={handleLogin}
-            loading={loading}
-            style={styles.signInBtn}
-          />
-          
-          <AuthButton
-            title="Create an account"
-            variant="outline"
-            onPress={() => navigation.navigate('Signup')}
-            disabled={loading}
-          />
+          <View style={styles.buttonGroup}>
+            <AuthButton
+              title="Sign In"
+              onPress={handleLogin}
+              loading={loading}
+            />
+            <AuthButton
+              title="Create an account"
+              variant="outline"
+              onPress={() => navigation.navigate('Signup')}
+              disabled={loading}
+            />
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -78,32 +80,20 @@ export const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  container: { flex: 1, backgroundColor: palette.bgPrimary },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    padding: spacing.screenPadding,
     justifyContent: 'center',
   },
-  header: {
-    marginBottom: 40,
+  illustrationArea: {
+    alignItems: 'center',
+    marginBottom: spacing['3xl'],
   },
-  title: {
-    ...typography.h1,
-    color: colors.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  form: {
-    width: '100%',
-  },
-  signInBtn: {
-    marginTop: 16,
-    marginBottom: 8,
-  },
+  illustrationEmoji: { fontSize: 64 },
+  header: { marginBottom: spacing['3xl'] },
+  title: { ...fonts.programDayTitle, color: palette.text, marginBottom: spacing.sm },
+  subtitle: { ...fonts.body, color: palette.textSecondary, lineHeight: 22 },
+  form: { width: '100%' },
+  buttonGroup: { marginTop: spacing.lg },
 });

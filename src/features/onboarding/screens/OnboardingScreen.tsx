@@ -4,18 +4,19 @@ import { AuthButton } from '../../auth/components/AuthButton';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { generateProgram } from '../../program/services/programGenerator';
 import { useAuth } from '../../auth/hooks/useAuth';
-import { colors } from '../../../core/theme/colors';
-import { typography } from '../../../core/theme/typography';
+import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 
 const GOALS = ['Weight Loss', 'Muscle Gain', 'General Fitness'];
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
 const ENVIRONMENTS = ['Home', 'Gym'];
 const DIETS = ['Any', 'Vegan', 'Keto', 'Vegetarian'];
 
+const STEP_COUNT = 4;
+
 export const OnboardingScreen = () => {
   const { user } = useAuth();
   const { createProfile } = useUserProfile();
-  
+
   const [goal, setGoal] = useState(GOALS[0]);
   const [level, setLevel] = useState(LEVELS[0]);
   const [environment, setEnvironment] = useState(ENVIRONMENTS[0]);
@@ -24,11 +25,9 @@ export const OnboardingScreen = () => {
 
   const handleComplete = async () => {
     if (!user) return;
-    
+
     try {
       setIsGenerating(true);
-      
-      // 1. Create Profile FIRST (Because Plans table has a foreign key to Users table)
       await createProfile.mutateAsync({
         goal,
         level,
@@ -36,28 +35,34 @@ export const OnboardingScreen = () => {
         diet_type: dietType,
         program_start_date: new Date().toISOString().split('T')[0],
       });
-
-      // 2. Generate structured 4-week program
       await generateProgram(user.id, goal, level, environment, dietType);
-      
-      // Because we added queryClient.invalidateQueries(['todayPlan']) to the mutate onSuccess,
-      // the HomeScreen will automatically render the generated plans as soon as it mounts.
-
     } catch (error: any) {
       Alert.alert('Error completing onboarding', error.message);
-      setIsGenerating(false); // only reset on error, or it flashes before unmounting
+      setIsGenerating(false);
     }
   };
 
-  const renderSection = (title: string, options: string[], selected: string, onSelect: (val: string) => void) => (
+  const renderSection = (
+    stepNum: number,
+    title: string,
+    options: string[],
+    selected: string,
+    onSelect: (val: string) => void
+  ) => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionHeader}>
+        <View style={styles.stepBadge}>
+          <Text style={styles.stepBadgeText}>{stepNum}</Text>
+        </View>
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
       <View style={styles.optionsGrid}>
         {options.map((opt) => (
           <TouchableOpacity
             key={opt}
             style={[styles.optionCard, selected === opt && styles.optionCardSelected]}
             onPress={() => onSelect(opt)}
+            activeOpacity={0.8}
           >
             <Text style={[styles.optionText, selected === opt && styles.optionTextSelected]}>
               {opt}
@@ -71,103 +76,118 @@ export const OnboardingScreen = () => {
   if (isGenerating) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Building your 4-week program...</Text>
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="large" color={palette.primary} />
+          <Text style={styles.loadingTitle}>Building your program</Text>
+          <Text style={styles.loadingText}>Creating a 4-week plan tailored to your goals…</Text>
+        </View>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Let's tailor your journey</Text>
-        <Text style={styles.subtitle}>Tell us about your fitness parameters to generate your plan.</Text>
+      {/* Progress Indicator */}
+      <View style={styles.progressRow}>
+        {Array.from({ length: STEP_COUNT }).map((_, i) => (
+          <View key={i} style={[styles.progressDot, styles.progressDotActive]} />
+        ))}
       </View>
 
-      {renderSection('What is your primary goal?', GOALS, goal, setGoal)}
-      {renderSection('What is your experience level?', LEVELS, level, setLevel)}
-      {renderSection('Where will you workout?', ENVIRONMENTS, environment, setEnvironment)}
-      {renderSection('Do you have dietary preferences?', DIETS, dietType, setDietType)}
+      <View style={styles.header}>
+        <Text style={styles.title}>Let's tailor your journey</Text>
+        <Text style={styles.subtitle}>
+          Tell us about your fitness goals and we'll create a personalized program.
+        </Text>
+      </View>
 
-      <AuthButton 
-        title="Generate My Plan" 
-        onPress={handleComplete} 
-        style={styles.btn}
-      />
+      {renderSection(1, 'What is your primary goal?', GOALS, goal, setGoal)}
+      {renderSection(2, 'What is your experience level?', LEVELS, level, setLevel)}
+      {renderSection(3, 'Where will you workout?', ENVIRONMENTS, environment, setEnvironment)}
+      {renderSection(4, 'Do you have dietary preferences?', DIETS, dietType, setDietType)}
+
+      <View style={styles.ctaContainer}>
+        <AuthButton title="Generate My Plan" onPress={handleComplete} />
+      </View>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  title: {
-    ...typography.h1,
-    color: colors.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    ...typography.h2,
-    fontSize: 20,
-    color: colors.text,
-    marginBottom: 12,
-  },
-  optionsGrid: {
+  container: { flex: 1, backgroundColor: palette.bgPrimary },
+  content: { padding: spacing.screenPadding, paddingTop: 60, paddingBottom: 40 },
+
+  // Progress
+  progressRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.sm,
+    marginBottom: spacing['3xl'],
   },
+  progressDot: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: palette.border,
+  },
+  progressDotActive: {
+    backgroundColor: palette.primary,
+  },
+
+  // Header
+  header: { marginBottom: spacing['3xl'] },
+  title: { ...fonts.programDayTitle, color: palette.text, marginBottom: spacing.sm },
+  subtitle: { ...fonts.body, color: palette.textSecondary, lineHeight: 22 },
+
+  // Section
+  section: { marginBottom: spacing['2xl'] },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm },
+  stepBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: palette.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBadgeText: { ...fonts.caption, color: palette.primary, fontWeight: '700' },
+  sectionTitle: { ...fonts.cardTitle, color: palette.text },
+
+  // Options
+  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   optionCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: palette.card,
+    borderWidth: 1.5,
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    ...shadows.card,
   },
   optionCardSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
   },
-  optionText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  optionTextSelected: {
-    color: '#FFF',
-  },
-  btn: {
-    marginTop: 16,
-  },
+  optionText: { ...fonts.bodyMedium, color: palette.textSecondary },
+  optionTextSelected: { color: palette.white },
+
+  // CTA
+  ctaContainer: { marginTop: spacing.lg, paddingTop: spacing.lg },
+
+  // Loading
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    padding: 24,
+    backgroundColor: palette.background,
+    padding: spacing.screenPadding,
   },
-  loadingText: {
-    ...typography.h2,
-    textAlign: 'center',
-    marginTop: 16,
-    color: colors.text,
+  loadingCard: {
+    backgroundColor: palette.card,
+    borderRadius: radius.xl,
+    padding: spacing['4xl'],
+    alignItems: 'center',
+    ...shadows.cardHover,
   },
+  loadingTitle: { ...fonts.sectionHeader, color: palette.text, marginTop: spacing.xl, marginBottom: spacing.sm },
+  loadingText: { ...fonts.body, color: palette.textSecondary, textAlign: 'center' },
 });

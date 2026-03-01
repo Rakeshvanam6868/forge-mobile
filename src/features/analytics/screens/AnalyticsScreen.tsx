@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useAnalytics } from '../hooks/useAnalytics';
-import { colors } from '../../../core/theme/colors';
-import { typography } from '../../../core/theme/typography';
-import { RetentionMetrics } from '../types/analytics';
-
-const COHORT_EMOJI: Record<string, string> = {
-  new: '🌱', exploring: '🔍', committed: '🔥', at_risk: '⚠️', churned: '💀',
-};
+import { Badge } from '../../../core/components/Badge';
+import { StatCard } from '../../../core/components/StatCard';
+import { PrimaryCard } from '../../../core/components/PrimaryCard';
+import { SectionBlock } from '../../../core/components/SectionBlock';
+import { GradientCard } from '../../../core/components/GradientCard';
+import { GreetingHeader } from '../../../core/components/GreetingHeader';
+import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
+import { SCROLL_BOTTOM_PADDING } from '../../../core/theme/layout';
 
 const TREND_EMOJI: Record<string, string> = { up: '📈', down: '📉', stable: '➡️' };
 
@@ -15,154 +16,135 @@ export const AnalyticsScreen = () => {
   const { analytics, isLoading } = useAnalytics();
 
   if (isLoading || !analytics) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={palette.primary} /></View>;
   }
 
   const { retention, activation, funnel, dropOff, streakIntelligence: si, usage, sessionDepth, consistencyScore } = analytics;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.screenTitle}>📊 Analytics (Dev)</Text>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {/* 👋 Greeting */}
+      <GreetingHeader />
 
-      {/* User State */}
-      <Section title="User State">
-        <Row label="First Seen" value={analytics.firstSeenDate ?? '—'} />
-        <Row label="User Type" value={`${COHORT_EMOJI[analytics.userType]} ${analytics.userType.toUpperCase()}`} />
-        <Row label="Consistency Score" value={`${consistencyScore}/100`} highlight />
-      </Section>
+      {/* ══════ HERO: Consistency Score (gradient) ══════ */}
+      <GradientCard colors={['#1E293B', '#2D3A4F']}>
+        <View style={styles.heroContent}>
+          <Text style={styles.heroLabel}>Consistency Score</Text>
+          <Text style={styles.heroScore}>{consistencyScore}</Text>
+          <View style={styles.heroBadgeRow}>
+            <Badge label={analytics.userType.toUpperCase()} variant="dark" />
+            <Text style={styles.heroDate}>Since {analytics.firstSeenDate ?? '—'}</Text>
+          </View>
+        </View>
+      </GradientCard>
 
       {/* Retention */}
-      <Section title="Retention">
-        <View style={styles.retentionGrid}>
-          {(['d1', 'd3', 'd7', 'd14', 'd30'] as const).map((key) => (
-            <View key={key} style={styles.retentionCell}>
-              <Text style={styles.retentionLabel}>{key.toUpperCase()}</Text>
-              <Text style={[
-                styles.retentionValue,
-                retention[key] === true && styles.retentionPass,
-                retention[key] === false && styles.retentionFail,
-              ]}>
-                {retention[key] === null ? '—' : retention[key] ? '✅' : '❌'}
-              </Text>
-            </View>
-          ))}
+      <SectionBlock title="Retention">
+        <PrimaryCard>
+          <View style={styles.retRow}>
+            {(['d1', 'd3', 'd7', 'd14', 'd30'] as const).map((k) => (
+              <View key={k} style={styles.retCell}>
+                <Text style={styles.retLabel}>{k.toUpperCase()}</Text>
+                <Text style={styles.retVal}>{retention[k] === null ? '—' : retention[k] ? '✅' : '❌'}</Text>
+              </View>
+            ))}
+          </View>
+        </PrimaryCard>
+      </SectionBlock>
+
+      <SectionBlock title="Activation">
+        <PrimaryCard>
+          <Row label="Activated" value={activation.isActivated ? '✅ Yes' : '❌ No'} />
+          <Row label="Time to Activate" value={activation.activationTimeHours !== null ? `${activation.activationTimeHours}h` : '—'} />
+        </PrimaryCard>
+      </SectionBlock>
+
+      <SectionBlock title="Engagement Funnel">
+        <View style={styles.tileGrid}>
+          <StatCard value={String(funnel.openDays)} label="Opened" mono />
+          <StatCard value={String(funnel.viewedDays)} label="Viewed" mono />
         </View>
-      </Section>
+        <View style={styles.tileGrid}>
+          <StatCard value={String(funnel.completedDays)} label="Completed" mono highlight />
+          <StatCard value={pct(funnel.openToCompleteRate)} label="Open → Done" mono />
+        </View>
+        <PrimaryCard>
+          <Row label="Open → View" value={pct(funnel.openToViewRate)} />
+          <Row label="View → Complete" value={pct(funnel.viewToCompleteRate)} />
+        </PrimaryCard>
+      </SectionBlock>
 
-      {/* Activation */}
-      <Section title="Activation">
-        <Row label="Activated" value={activation.isActivated ? '✅ Yes' : '❌ No'} />
-        <Row label="Time to Activate" value={activation.activationTimeHours !== null ? `${activation.activationTimeHours}h` : '—'} />
-      </Section>
+      <SectionBlock title="Streak Intelligence">
+        <View style={styles.tileGrid}>
+          <StatCard value={String(si.currentStreak)} label="Current" highlight mono />
+          <StatCard value={String(si.longestStreak)} label="Longest" icon="🏆" mono />
+        </View>
+        <View style={styles.tileGrid}>
+          <StatCard value={String(si.averageStreakLength)} label="Average" mono />
+          <StatCard value={String(si.streakRecoveryCount)} label="Recoveries" mono />
+        </View>
+        <PrimaryCard><Row label="Total Breaks" value={String(si.totalStreakBreaks)} /></PrimaryCard>
+      </SectionBlock>
 
-      {/* Funnel */}
-      <Section title="Engagement Funnel">
-        <Row label="Open Days" value={String(funnel.openDays)} />
-        <Row label="Viewed Days" value={String(funnel.viewedDays)} />
-        <Row label="Completed Days" value={String(funnel.completedDays)} />
-        <View style={styles.divider} />
-        <Row label="Open → View" value={pct(funnel.openToViewRate)} />
-        <Row label="View → Complete" value={pct(funnel.viewToCompleteRate)} />
-        <Row label="Open → Complete" value={pct(funnel.openToCompleteRate)} />
-      </Section>
+      <SectionBlock title="Usage Frequency">
+        <View style={styles.tileGrid}>
+          <StatCard value={`${usage.activeDaysLast7}/7`} label="Last 7d" mono />
+          <StatCard value={`${usage.activeDaysLast30}/30`} label="Last 30d" mono />
+        </View>
+        <PrimaryCard><Row label="Trend" value={`${TREND_EMOJI[usage.usageTrend]} ${usage.usageTrend}`} /></PrimaryCard>
+      </SectionBlock>
 
-      {/* Streak Intelligence */}
-      <Section title="Streak Intelligence">
-        <Row label="Current Streak" value={`${si.currentStreak} days`} highlight />
-        <Row label="Longest Streak" value={`${si.longestStreak} days`} />
-        <Row label="Average Streak" value={`${si.averageStreakLength} days`} />
-        <Row label="Total Breaks" value={String(si.totalStreakBreaks)} />
-        <Row label="Recoveries (≤48h)" value={String(si.streakRecoveryCount)} />
-      </Section>
+      <SectionBlock title="Session Depth">
+        <PrimaryCard>
+          <Row label="Completion/Active Day" value={pct(sessionDepth.completionPerActiveDay)} />
+          <Row label="View-Only Days" value={String(sessionDepth.viewOnlyDays)} />
+          <Row label="Open-Only Days" value={String(sessionDepth.openOnlyDays)} />
+        </PrimaryCard>
+      </SectionBlock>
 
-      {/* Usage */}
-      <Section title="Usage Frequency">
-        <Row label="Last 7 Days" value={`${usage.activeDaysLast7}/7`} />
-        <Row label="Last 30 Days" value={`${usage.activeDaysLast30}/30`} />
-        <Row label="Trend" value={`${TREND_EMOJI[usage.usageTrend]} ${usage.usageTrend}`} />
-      </Section>
-
-      {/* Session Depth */}
-      <Section title="Session Depth">
-        <Row label="Completion/Active Day" value={pct(sessionDepth.completionPerActiveDay)} />
-        <Row label="View-Only Days" value={String(sessionDepth.viewOnlyDays)} />
-        <Row label="Open-Only Days" value={String(sessionDepth.openOnlyDays)} />
-      </Section>
-
-      {/* Drop-Off */}
-      <Section title="Drop-Off Detection">
-        {dropOff.dropOffDate ? (
-          <>
-            <Row label="Drop-Off Date" value={dropOff.dropOffDate} />
-            <Row label="Program Day" value={String(dropOff.dropOffProgramDay)} />
-            <Row label="Days Ago" value={String(dropOff.daysSinceDropOff)} />
-          </>
-        ) : (
-          <Text style={styles.noDropOff}>✅ No drop-off detected</Text>
-        )}
-      </Section>
+      <SectionBlock title="Drop-Off">
+        <PrimaryCard>
+          {dropOff.dropOffDate ? (
+            <><Row label="Drop-Off Date" value={dropOff.dropOffDate} /><Row label="Program Day" value={String(dropOff.dropOffProgramDay)} /><Row label="Days Ago" value={String(dropOff.daysSinceDropOff)} /></>
+          ) : (
+            <View style={styles.noDropOff}><Text style={styles.noDropOffText}>✅ No drop-off detected</Text></View>
+          )}
+        </PrimaryCard>
+      </SectionBlock>
     </ScrollView>
   );
 };
 
-// ═══════════════════════════════════════════════
-// Sub-components
-// ═══════════════════════════════════════════════
-
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>{title}</Text>
-    {children}
+const Row = ({ label, value }: { label: string; value: string }) => (
+  <View style={styles.metricRow}>
+    <Text style={styles.metricLabel}>{label}</Text>
+    <Text style={styles.metricValue}>{value}</Text>
   </View>
 );
-
-const Row = ({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) => (
-  <View style={styles.row}>
-    <Text style={styles.rowLabel}>{label}</Text>
-    <Text style={[styles.rowValue, highlight && styles.rowHighlight]}>{value}</Text>
-  </View>
-);
-
-function pct(n: number): string {
-  return `${Math.round(n * 100)}%`;
-}
-
-// ═══════════════════════════════════════════════
-// Styles
-// ═══════════════════════════════════════════════
+function pct(n: number): string { return `${Math.round(n * 100)}%`; }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: palette.bgPrimary },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: 20, paddingTop: 60, paddingBottom: 40 },
-  screenTitle: { ...typography.h1, color: colors.text, marginBottom: 24 },
+  content: { padding: spacing.screenPadding, paddingTop: 56, paddingBottom: SCROLL_BOTTOM_PADDING },
 
-  section: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sectionTitle: { ...typography.h2, fontSize: 16, color: colors.primary, marginBottom: 12 },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
+  heroContent: { alignItems: 'center' },
+  heroLabel: { ...fonts.label, color: palette.textOnDarkMuted },
+  heroScore: { ...fonts.heroNumber, color: palette.textOnDark, marginVertical: spacing.innerSm },
+  heroBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.innerMd, marginTop: spacing.innerSm },
+  heroDate: { ...fonts.caption, color: palette.textOnDarkMuted },
 
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
-  rowLabel: { ...typography.body, color: colors.textSecondary },
-  rowValue: { ...typography.body, color: colors.text, fontWeight: '600' },
-  rowHighlight: { color: colors.primary, fontWeight: '800' },
+  retRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  retCell: { alignItems: 'center', flex: 1 },
+  retLabel: { ...fonts.badge, color: palette.textMuted, marginBottom: spacing.innerSm },
+  retVal: { fontSize: 18 },
 
-  retentionGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  retentionCell: { alignItems: 'center', flex: 1 },
-  retentionLabel: { ...typography.bodySmall, color: colors.textSecondary, fontWeight: '700', marginBottom: 4 },
-  retentionValue: { fontSize: 18 },
-  retentionPass: { color: '#22C55E' },
-  retentionFail: { color: '#EF4444' },
+  tileGrid: { flexDirection: 'row', gap: spacing.innerMd, marginBottom: spacing.innerMd },
 
-  noDropOff: { ...typography.body, color: '#22C55E', textAlign: 'center', paddingVertical: 8 },
+  metricRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.innerSm },
+  metricLabel: { ...fonts.body, color: palette.textMuted },
+  metricValue: { ...fonts.tabular, color: palette.textPrimary },
+
+  noDropOff: { alignItems: 'center', padding: spacing.lg },
+  noDropOffText: { ...fonts.body, color: palette.success },
 });

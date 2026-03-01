@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors } from '../../../core/theme/colors';
-import { typography } from '../../../core/theme/typography';
+import { palette, fonts, spacing, radius } from '../../../core/theme/designTokens';
 
 interface RecoveryCardProps {
   visible: boolean;
@@ -12,31 +11,32 @@ export const RecoveryCard: React.FC<RecoveryCardProps> = ({ visible }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Missed yesterday. ⚠️</Text>
-      <Text style={styles.text}>
-        Do a short session today to stay on track.
-      </Text>
+      <View style={styles.iconWrap}>
+        <Text style={styles.icon}>⚠️</Text>
+      </View>
+      <View style={styles.content}>
+        <Text style={styles.title}>Missed yesterday</Text>
+        <Text style={styles.text}>Do a short session today to stay on track.</Text>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FEF2F2', // Light red
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FECACA', // Border red
-    marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: palette.warningSoft,
+    padding: spacing.lg,
+    borderRadius: radius.inner,
+    marginBottom: spacing.cardGap,
   },
-  title: {
-    ...typography.h2,
-    fontSize: 16,
-    color: '#991B1B', // Dark red
-    marginBottom: 4,
+  iconWrap: {
+    width: 36, height: 36, borderRadius: radius.icon,
+    backgroundColor: palette.iconTintWarm,
+    alignItems: 'center', justifyContent: 'center',
   },
-  text: {
-    ...typography.bodySmall,
-    color: '#B91C1C', // Med red
-  },
+  icon: { fontSize: 18 },
+  content: { flex: 1, marginLeft: spacing.innerMd },
+  title: { ...fonts.cardTitle, color: '#92400E' },
+  text: { ...fonts.body, color: '#A16207', marginTop: 2 },
 });

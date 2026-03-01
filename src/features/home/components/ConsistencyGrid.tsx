@@ -1,36 +1,26 @@
 import React from 'react';
 import { View, StyleSheet, Text, Dimensions } from 'react-native';
 import { GridDay } from '../services/consistencyEngine';
-import { colors } from '../../../core/theme/colors';
-import { typography } from '../../../core/theme/typography';
+import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 
 interface ConsistencyGridProps {
   history: GridDay[];
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const GRID_PADDING = 40; // 20 container padding × 2
+const GRID_PADDING = spacing.screenPadding * 2 + spacing.cardPadding * 2;
 const COLUMNS = 7;
-const GAP = 6;
+const GAP = 5;
 const CELL_SIZE = Math.floor((SCREEN_WIDTH - GRID_PADDING - (COLUMNS - 1) * GAP) / COLUMNS);
 
-/**
- * Premium fitness consistency grid.
- *
- * - 7 columns, flows left→right, top→bottom
- * - Day number inside each cell
- * - Today pulsing ring, completed = solid green, missed = yellow/red
- * - Day 1 always starts at position [row 1, col 1]
- */
 export const ConsistencyGrid: React.FC<ConsistencyGridProps> = ({ history }) => {
-  // Filter out days before program started
-  const visibleDays = history.filter((d) => d.status !== 'before_program');
+  const visible = history.filter((d) => d.status !== 'before_program');
 
-  if (visibleDays.length === 0) {
+  if (visible.length === 0) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Your Journey</Text>
-        <View style={styles.emptyState}>
+        <View style={styles.empty}>
           <Text style={styles.emptyEmoji}>🏁</Text>
           <Text style={styles.emptyTitle}>Day 1 starts now</Text>
           <Text style={styles.emptyText}>Complete your workout to light up the grid!</Text>
@@ -39,59 +29,37 @@ export const ConsistencyGrid: React.FC<ConsistencyGridProps> = ({ history }) => 
     );
   }
 
-  // Build rows of 7
   const rows: GridDay[][] = [];
-  for (let i = 0; i < visibleDays.length; i += COLUMNS) {
-    rows.push(visibleDays.slice(i, i + COLUMNS));
-  }
+  for (let i = 0; i < visible.length; i += COLUMNS) rows.push(visible.slice(i, i + COLUMNS));
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Your Journey</Text>
-
-      {/* Legend */}
       <View style={styles.legendRow}>
-        <LegendItem color="#22c55e" label="Done" />
-        <LegendItem color="#facc15" label="Missed" />
-        <LegendItem color="#ef4444" label="3+ Missed" />
-        <LegendItem color={colors.primary} label="Today" ring />
+        <Dot color={palette.success} label="Done" />
+        <Dot color={palette.warning} label="Missed" />
+        <Dot color={palette.danger} label="3+ Missed" />
+        <Dot color={palette.primary} label="Today" ring />
       </View>
-
-      {/* Grid */}
       <View style={styles.grid}>
         {rows.map((row, ri) => (
           <View key={ri} style={styles.row}>
             {row.map((cell, ci) => {
               const dayNum = ri * COLUMNS + ci + 1;
-              const isToday = cell.status === 'today';
-              const isCompleted = cell.status === 'completed';
-              const isMissed = cell.status === 'missed';
-              const isMissedLong = cell.status === 'missed_long';
-
+              const done = cell.status === 'completed';
+              const missed = cell.status === 'missed';
+              const missedLong = cell.status === 'missed_long';
+              const today = cell.status === 'today';
               return (
-                <View
-                  key={cell.date}
-                  style={[
-                    styles.cell,
-                    isCompleted && styles.cellCompleted,
-                    isMissed && styles.cellMissed,
-                    isMissedLong && styles.cellMissedLong,
-                    isToday && styles.cellToday,
-                  ]}
-                >
-                  {/* Day number */}
-                  <Text
-                    style={[
-                      styles.cellNumber,
-                      isCompleted && styles.cellNumberLight,
-                      isMissedLong && styles.cellNumberLight,
-                    ]}
-                  >
-                    {dayNum}
-                  </Text>
-
-                  {/* Completed checkmark */}
-                  {isCompleted && <Text style={styles.cellCheck}>✓</Text>}
+                <View key={cell.date} style={[
+                  styles.cell,
+                  done && styles.cellDone,
+                  missed && styles.cellMissed,
+                  missedLong && styles.cellMissedLong,
+                  today && styles.cellToday,
+                ]}>
+                  <Text style={[styles.cellNum, (done || missedLong) && styles.cellNumHL]}>{dayNum}</Text>
+                  {done && <Text style={styles.cellCheck}>✓</Text>}
                 </View>
               );
             })}
@@ -102,133 +70,41 @@ export const ConsistencyGrid: React.FC<ConsistencyGridProps> = ({ history }) => 
   );
 };
 
-const LegendItem = ({
-  color,
-  label,
-  ring,
-}: {
-  color: string;
-  label: string;
-  ring?: boolean;
-}) => (
+const Dot = ({ color, label, ring }: { color: string; label: string; ring?: boolean }) => (
   <View style={styles.legendItem}>
-    <View
-      style={[
-        styles.legendDot,
-        ring
-          ? { backgroundColor: 'transparent', borderWidth: 2, borderColor: color }
-          : { backgroundColor: color },
-      ]}
-    />
+    <View style={[styles.legendDot, ring ? { borderWidth: 2, borderColor: color } : { backgroundColor: color }]} />
     <Text style={styles.legendText}>{label}</Text>
   </View>
 );
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
+    backgroundColor: palette.bgSecondary,
+    padding: spacing.cardPadding,
+    borderRadius: radius.card,
+    ...shadows.level1,
   },
-  title: {
-    ...typography.h2,
-    fontSize: 18,
-    color: colors.text,
-    marginBottom: 14,
-  },
-
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  emptyEmoji: {
-    fontSize: 36,
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    ...typography.h2,
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  emptyText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-
-  // Legend
-  legendRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
-  },
-  legendText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-
-  // Grid
-  grid: {
-    gap: GAP,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: GAP,
-  },
+  title: { ...fonts.cardTitle, color: palette.textPrimary, marginBottom: spacing.lg },
+  empty: { alignItems: 'center', paddingVertical: spacing.xl },
+  emptyEmoji: { fontSize: 36, marginBottom: spacing.innerSm },
+  emptyTitle: { ...fonts.cardTitle, color: palette.textPrimary, marginBottom: spacing.xs },
+  emptyText: { ...fonts.body, color: palette.textMuted, textAlign: 'center' },
+  legendRow: { flexDirection: 'row', marginBottom: spacing.lg, gap: spacing.innerMd, flexWrap: 'wrap' },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  legendDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'transparent' },
+  legendText: { ...fonts.caption, color: palette.textMuted },
+  grid: { gap: GAP },
+  row: { flexDirection: 'row', gap: GAP },
   cell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
-    borderRadius: 8,
-    backgroundColor: colors.inputBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: CELL_SIZE, height: CELL_SIZE, borderRadius: 12,
+    backgroundColor: palette.bgPrimary,
+    alignItems: 'center', justifyContent: 'center',
   },
-
-  // Cell states
-  cellCompleted: {
-    backgroundColor: '#22c55e',
-  },
-  cellMissed: {
-    backgroundColor: '#fef08a', // yellow-200 softer
-  },
-  cellMissedLong: {
-    backgroundColor: '#fca5a5', // red-300 softer
-  },
-  cellToday: {
-    backgroundColor: '#dbeafe', // blue-100
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-
-  // Cell content
-  cellNumber: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  cellNumberLight: {
-    color: '#FFFFFF',
-  },
-  cellCheck: {
-    fontSize: 8,
-    color: '#FFFFFF',
-    fontWeight: '700',
-    marginTop: -2,
-  },
+  cellDone: { backgroundColor: palette.successSoft },
+  cellMissed: { backgroundColor: palette.warningSoft },
+  cellMissedLong: { backgroundColor: palette.dangerSoft },
+  cellToday: { backgroundColor: palette.bgElevated, borderWidth: 2, borderColor: palette.primary },
+  cellNum: { fontSize: 11, fontWeight: '500', color: palette.textMuted },
+  cellNumHL: { color: palette.success, fontWeight: '600' },
+  cellCheck: { fontSize: 8, color: palette.success, fontWeight: '700', marginTop: -2 },
 });
