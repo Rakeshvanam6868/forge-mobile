@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, Text, Dimensions } from 'react-native';
-import { GridDay } from '../services/consistencyEngine';
+import { ConsistencyGridDay } from '../../program/services/continuitySelectors';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 
 interface ConsistencyGridProps {
-  history: GridDay[];
+  history: ConsistencyGridDay[];
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -14,7 +14,7 @@ const GAP = 5;
 const CELL_SIZE = Math.floor((SCREEN_WIDTH - GRID_PADDING - (COLUMNS - 1) * GAP) / COLUMNS);
 
 export const ConsistencyGrid: React.FC<ConsistencyGridProps> = ({ history }) => {
-  const visible = history.filter((d) => d.status !== 'before_program');
+  const visible = history;
 
   if (visible.length === 0) {
     return (
@@ -29,7 +29,7 @@ export const ConsistencyGrid: React.FC<ConsistencyGridProps> = ({ history }) => 
     );
   }
 
-  const rows: GridDay[][] = [];
+  const rows: ConsistencyGridDay[][] = [];
   for (let i = 0; i < visible.length; i += COLUMNS) rows.push(visible.slice(i, i + COLUMNS));
 
   return (
@@ -38,7 +38,7 @@ export const ConsistencyGrid: React.FC<ConsistencyGridProps> = ({ history }) => 
       <View style={styles.legendRow}>
         <Dot color={palette.success} label="Done" />
         <Dot color={palette.warning} label="Missed" />
-        <Dot color={palette.danger} label="3+ Missed" />
+        <Dot color={palette.borderSubtle} label="Rest" />
         <Dot color={palette.primary} label="Today" ring />
       </View>
       <View style={styles.grid}>
@@ -46,19 +46,19 @@ export const ConsistencyGrid: React.FC<ConsistencyGridProps> = ({ history }) => 
           <View key={ri} style={styles.row}>
             {row.map((cell, ci) => {
               const dayNum = ri * COLUMNS + ci + 1;
-              const done = cell.status === 'completed';
-              const missed = cell.status === 'missed';
-              const missedLong = cell.status === 'missed_long';
-              const today = cell.status === 'today';
+              const done = cell.state === 'COMPLETED';
+              const missed = cell.state === 'MISSED';
+              const rest = cell.state === 'REST';
+              const today = cell.state === 'TODAY';
               return (
                 <View key={cell.date} style={[
                   styles.cell,
                   done && styles.cellDone,
                   missed && styles.cellMissed,
-                  missedLong && styles.cellMissedLong,
+                  rest && styles.cellRest,
                   today && styles.cellToday,
                 ]}>
-                  <Text style={[styles.cellNum, (done || missedLong) && styles.cellNumHL]}>{dayNum}</Text>
+                  <Text style={[styles.cellNum, done && styles.cellNumHL, missed && styles.cellNumMissed]}>{dayNum}</Text>
                   {done && <Text style={styles.cellCheck}>✓</Text>}
                 </View>
               );
@@ -102,9 +102,10 @@ const styles = StyleSheet.create({
   },
   cellDone: { backgroundColor: palette.successSoft },
   cellMissed: { backgroundColor: palette.warningSoft },
-  cellMissedLong: { backgroundColor: palette.dangerSoft },
+  cellRest: { backgroundColor: palette.bgPrimary, opacity: 0.8 },
   cellToday: { backgroundColor: palette.bgElevated, borderWidth: 2, borderColor: palette.primary },
   cellNum: { fontSize: 11, fontWeight: '500', color: palette.textMuted },
   cellNumHL: { color: palette.success, fontWeight: '600' },
+  cellNumMissed: { color: palette.warning, fontWeight: '600' },
   cellCheck: { fontSize: 8, color: palette.success, fontWeight: '700', marginTop: -2 },
 });

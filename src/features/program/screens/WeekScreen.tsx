@@ -35,17 +35,18 @@ export const WeekScreen = () => {
           const isDone = item.state === 'COMPLETED';
           const isTarget = item.state === 'TARGET';
           const isFuture = item.state === 'UPCOMING';
+          const isMissed = item.state === 'MISSED';
           const isLast = idx === timeline.length - 1;
 
           return (
             <View key={`${item.id}-${idx}`} style={styles.tlItem}>
               <View style={styles.tlTrack}>
-                <View style={[styles.tlDot, isDone && styles.dotDone, isTarget && styles.dotToday, isFuture && styles.dotFuture]} />
-                {!isLast && <View style={[styles.tlLine, isDone && styles.lineDone]} />}
+                <View style={[styles.tlDot, isDone && styles.dotDone, isTarget && styles.dotToday, isFuture && styles.dotFuture, isMissed && styles.dotMissed]} />
+                {!isLast && <View style={[styles.tlLine, isDone && styles.lineDone, isMissed && styles.lineMissed]} />}
               </View>
-              <View style={[styles.dayCard, isDone && styles.dayDone, isTarget && styles.dayToday, isFuture && styles.dayFuture]}>
+              <View style={[styles.dayCard, isDone && styles.dayDone, isTarget && styles.dayToday, isFuture && styles.dayFuture, isMissed && styles.dayMissed]}>
                 <View style={styles.dayHeader}>
-                  {isDone ? (
+                  {isDone || isMissed ? (
                     <Text style={styles.dayLabel}>
                        {item.dateStr ? new Date(item.dateStr).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : `Day ${item.dayNumber}`}
                     </Text>
@@ -54,6 +55,7 @@ export const WeekScreen = () => {
                   )}
                   {isDone && <Badge label="COMPLETED" variant="success" />}
                   {isTarget && <Badge label="TARGET" variant="primary" />}
+                  {isMissed && <Badge label="MISSED" variant="danger" />}
                 </View>
                 
                 <Text style={[styles.dayTitle, isFuture && styles.dayTitleFuture]} numberOfLines={2}>
@@ -92,8 +94,10 @@ const styles = StyleSheet.create({
   dotDone: { backgroundColor: palette.success },
   dotToday: { backgroundColor: palette.primary, width: 12, height: 12, borderRadius: 6 },
   dotFuture: { backgroundColor: 'rgba(148,163,184,0.2)' },
+  dotMissed: { backgroundColor: palette.danger },
   tlLine: { width: 1.5, flex: 1, backgroundColor: 'rgba(148,163,184,0.15)', marginTop: -1 },
   lineDone: { backgroundColor: 'rgba(22,163,74,0.15)' },
+  lineMissed: { backgroundColor: 'rgba(239,68,68,0.15)' },
 
   dayCard: {
     flex: 1, backgroundColor: palette.bgSecondary,
@@ -104,6 +108,7 @@ const styles = StyleSheet.create({
   dayDone: { backgroundColor: palette.successSoft },
   dayToday: { backgroundColor: palette.bgElevated, ...shadows.focus },
   dayFuture: { opacity: 0.45 },
+  dayMissed: { backgroundColor: palette.dangerSoft },
   dayHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
   dayLabel: { ...fonts.caption, color: palette.textMuted },
   dayLabelToday: { color: palette.primary },

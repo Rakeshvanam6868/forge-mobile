@@ -7,7 +7,7 @@ export function getDaysDifference(dateStr1: string, dateStr2: string): number {
   return Math.floor(Math.abs(d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export type SessionState = 'COMPLETED' | 'TARGET' | 'UPCOMING';
+export type SessionState = 'COMPLETED' | 'TARGET' | 'UPCOMING' | 'MISSED';
 
 export type TimelineDay = {
   id: string; // Event ID or Program Day ID
@@ -117,6 +117,8 @@ export function getUserTrainingLifecycleState(
   return 'READY_TO_TRAIN_TODAY';
 }
 
+import { buildConsistencyGrid, getStartDate } from './continuitySelectors';
+
 /**
  * resolveProgramState
  * 
@@ -171,35 +173,76 @@ export const resolveProgramState = (
 
   const nextTrainingDateString = formatNextTrainingDate(lastCompletedDateStr, profile?.weekly_frequency, todayLocalDate);
 
-  const nextSessionIndex = (currentProgramDay - 1) % programStructure.length;
-  const nextSession = programStructure[nextSessionIndex];
-
   const timeline: TimelineDay[] = [];
   
-  completionEvents.forEach((ev, idx) => {
-    const dayIndex = idx % programStructure.length;
-    const structureDay = programStructure[dayIndex];
-    timeline.push({
-      id: ev.id,
-      dayNumber: idx + 1,
-      title: structureDay.title,
-      focusType: structureDay.focus_type,
-      state: 'COMPLETED',
-      dateStr: ev.event_date,
-      difficulty: (ev.event_meta?.difficulty as string) || undefined,
-    });
+  const start = getStartDate(events) || todayLocalDate;
+  const { grid } = buildConsistencyGrid(start, todayLocalDate, profile?.weekly_frequency, events);
+  
+  let programCursor = 1;
+
+  grid.forEach((day) => {
+    if (day.date === todayLocalDate) return; // Skip today in the past loop
+    
+    const structIndex = (programCursor - 1) % programStructure.length;
+    const structureDay = programStructure[structIndex];
+
+    if (day.state === 'COMPLETED') {
+      const ev = sortedCompletions.find(e => e.event_date === day.date);
+      if (ev) {
+        timeline.push({
+          id: ev.id,
+          dayNumber: programCursor,
+          title: structureDay.title,
+          focusType: structureDay.focus_type,
+          state: 'COMPLETED',
+          dateStr: day.date,
+          difficulty: (ev.event_meta?.difficulty as string) || undefined,
+        });
+        programCursor++;
+      }
+    } else if (day.state === 'MISSED') {
+      timeline.push({
+        id: `missed-${day.date}`,
+        dayNumber: programCursor,
+        title: structureDay.title,
+        focusType: 'rest', // Show as missed/rest to user
+        state: 'MISSED',
+        dateStr: day.date,
+      });
+      // DO NOT increment programCursor - the actual workout shifts forward naturally!
+    }
   });
 
+  if (isTodayCompleted) {
+      const ev = sortedCompletions.find(e => e.event_date === todayLocalDate)!;
+      const structIndex = (programCursor - 1) % programStructure.length;
+      const structureDay = programStructure[structIndex];
+      
+      timeline.push({
+          id: ev.id,
+          dayNumber: programCursor,
+          title: structureDay.title,
+          focusType: structureDay.focus_type,
+          state: 'COMPLETED',
+          dateStr: todayLocalDate,
+          difficulty: (ev.event_meta?.difficulty as string) || undefined,
+      });
+      programCursor++;
+  }
+
+  const nextSessionIndex = (programCursor - 1) % programStructure.length;
+  const nextSession = programStructure[nextSessionIndex];
+
   timeline.push({
-    id: `target-${currentProgramDay}`,
-    dayNumber: currentProgramDay,
+    id: `target-${programCursor}`,
+    dayNumber: programCursor,
     title: nextSession.title,
     focusType: nextSession.focus_type,
     state: 'TARGET',
   });
 
   for (let i = 1; i <= 3; i++) {
-    const upcomingDayNum = currentProgramDay + i;
+    const upcomingDayNum = programCursor + i;
     const upcomingIndex = (upcomingDayNum - 1) % programStructure.length;
     const upcomingStruct = programStructure[upcomingIndex];
     timeline.push({

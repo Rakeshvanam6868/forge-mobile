@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  TouchableOpacity, Alert
+  TouchableOpacity, Alert, Modal, Pressable
 } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import exercisesData from '../data/exercises.json';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useAdaptiveDay } from '../hooks/useAdaptiveDay';
 import { upsertExerciseHistory } from '../services/exerciseHistoryQueries';
@@ -37,6 +38,15 @@ const MEAL_ADJUSTMENT_LABELS: Record<string, string> = {
   none: '',
 };
 
+function getRecoveryInsight(difficulty: string | null, energy: number | null): string {
+  if (!difficulty || !energy) return "Adaptive load will measure your next session based on today's effort.";
+  if (difficulty === 'hard' && energy === 1) return "You pushed hard today on low energy! Your body will need extra fuel and deep rest to recover adequately.";
+  if (difficulty === 'hard') return "High intensity effort! Tomorrow's routine is dynamically adjusting to ensure you don't overtrain.";
+  if (difficulty === 'easy' && energy === 3) return "Great energy today! We'll slightly increase the challenge in your next session to keep you progressing.";
+  if (energy <= 1) return "Low energy detected. Consider focusing on hydration and sleep tonight before your next workout.";
+  return "Solid session. Your baseline is steady and tomorrow's target is locked in.";
+}
+
 export const TodayScreen = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -46,6 +56,7 @@ export const TodayScreen = () => {
   const [energyLevel, setEnergyLevel] = useState(2);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [showCelebration, setShowCelebration] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const justCompleted = useRef(false);
 
   useEffect(() => {
@@ -101,22 +112,24 @@ export const TodayScreen = () => {
     <>
       <SectionBlock title="Workout">
         {adaptedWorkouts.map((w: AdaptedWorkout, i: number) => (
-          <PrimaryCard key={w.id} state={w.isAdapted ? 'adapted' : 'default'} accentColor={w.isAdapted ? palette.accentAmber : undefined}>
-            <View style={styles.exerciseRow}>
-              <View style={styles.stepCircle}><Text style={styles.stepNum}>{i + 1}</Text></View>
-              <View style={styles.exerciseBody}>
-                <View style={styles.exerciseNameRow}>
-                  <Text style={styles.exerciseName} numberOfLines={2}>{w.exercise_name}</Text>
-                  {w.isAdapted && <Badge label="ADAPTED" variant="warning" />}
+          <TouchableOpacity key={w.id} activeOpacity={0.8} onPress={() => setSelectedExercise(w.exercise_name)}>
+            <PrimaryCard state={w.isAdapted ? 'adapted' : 'default'} accentColor={w.isAdapted ? palette.accentAmber : undefined}>
+              <View style={styles.exerciseRow}>
+                <View style={styles.stepCircle}><Text style={styles.stepNum}>{i + 1}</Text></View>
+                <View style={styles.exerciseBody}>
+                  <View style={styles.exerciseNameRow}>
+                    <Text style={styles.exerciseName} numberOfLines={2}>{w.exercise_name}</Text>
+                    {w.isAdapted && <Badge label="ADAPTED" variant="warning" />}
+                  </View>
+                  <Text style={styles.exerciseSets}>
+                    {w.adaptedSets ? `${w.adaptedSets} sets` : ''}
+                    {w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}
+                    {w.duration ? ` · ${w.duration}` : ''}
+                  </Text>
                 </View>
-                <Text style={styles.exerciseSets}>
-                  {w.adaptedSets ? `${w.adaptedSets} sets` : ''}
-                  {w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}
-                  {w.duration ? ` · ${w.duration}` : ''}
-                </Text>
               </View>
-            </View>
-          </PrimaryCard>
+            </PrimaryCard>
+          </TouchableOpacity>
         ))}
       </SectionBlock>
 
@@ -141,13 +154,20 @@ export const TodayScreen = () => {
       <View style={styles.insightBox}>
         <Text style={styles.heroIcon}>🧠</Text>
         <Text style={styles.insightText}>Recovery Insight:</Text>
-        <Text style={styles.insightValue}>Adaptive load will measure your next session based on today's effort.</Text>
+        <Text style={styles.insightValue}>
+          {getRecoveryInsight(
+            adaptiveState.lastCompletedSession?.difficulty || null,
+            adaptiveState.lastCompletedSession?.energy || null
+          )}
+        </Text>
       </View>
 
       <View style={styles.nextDateBox}>
         <Text style={styles.nextDateLabel}>Next session</Text>
         <Text style={styles.nextDateValue}>{nextTrainingDateString}</Text>
-        <Text style={styles.nextDatePreview}>Preview: {FOCUS_ICONS[workoutType]} {dayDetail.title}</Text>
+        {lifecycleState !== 'RECOVERY_DAY' && (
+          <Text style={styles.nextDatePreview}>Preview: {FOCUS_ICONS[workoutType]} {dayDetail.title}</Text>
+        )}
       </View>
     </View>
   );
@@ -211,10 +231,12 @@ export const TodayScreen = () => {
         {/* STRICT STATE SWITCH */}
         {lifecycleState === 'SESSION_COMPLETED_TODAY' 
           ? renderCompletedState() 
-          : renderWorkoutSection()
+          : lifecycleState === 'RECOVERY_DAY'
+            ? null // Just show the top info banner for recovery days
+            : renderWorkoutSection()
         }
 
-        {/* MEALS - Only show if not completed today */}
+        {/* MEALS - Only show if not completed today, and usually on rest days they have specific meal plans too */}
         {lifecycleState !== 'SESSION_COMPLETED_TODAY' && (
           <SectionBlock title="Meals">
             {adaptivePlan.mealAdjustment !== 'none' && (
@@ -241,6 +263,65 @@ export const TodayScreen = () => {
           </SectionBlock>
         )}
       </ScrollView>
+
+      {/* Exercise Detail Modal */}
+      <Modal visible={!!selectedExercise} animationType="slide" transparent={true} onRequestClose={() => setSelectedExercise(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setSelectedExercise(null)}>
+          <Pressable style={styles.bottomSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{selectedExercise}</Text>
+              <TouchableOpacity onPress={() => setSelectedExercise(null)} hitSlop={10}>
+                <Text style={styles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
+              {(() => {
+                const exKey = selectedExercise ? Object.keys(exercisesData).find(k => k.toLowerCase() === selectedExercise.toLowerCase()) : null;
+                const details = exKey ? (exercisesData as any)[exKey] : null;
+
+                if (!details) {
+                  return (
+                    <View style={styles.missingDetailBox}>
+                      <Text style={styles.missingDetailIcon}>ℹ️</Text>
+                      <Text style={styles.missingDetailText}>Details for this exercise will be added soon.</Text>
+                      <Text style={styles.missingFallback}>Focus on form and safety!</Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <>
+                    <View style={styles.tagWrap}>
+                      {details.muscles.map((m: string) => (
+                        <View key={m} style={styles.muscleTag}><Text style={styles.muscleTagText}>{m}</Text></View>
+                      ))}
+                    </View>
+                    
+                    <Text style={styles.sectionHeader}>How to perform</Text>
+                    <View style={styles.stepsWrap}>
+                      {details.steps.map((step: string, index: number) => (
+                        <View key={index} style={styles.stepRow}>
+                          <Text style={styles.stepDot}>•</Text>
+                          <Text style={styles.stepText}>{step}</Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    <Text style={styles.sectionHeader}>Pro Tip</Text>
+                    <View style={styles.tipBox}>
+                      <Text style={styles.tipIcon}>💡</Text>
+                      <Text style={styles.tipText}>{details.tips}</Text>
+                    </View>
+                  </>
+                );
+              })()}
+              <View style={{height: 40}} />
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -331,5 +412,29 @@ const styles = StyleSheet.create({
   warningText: { ...fonts.body, color: '#B45309', marginTop: 2 },
   infoTitle: { ...fonts.cardTitle, color: '#0369A1' },
   infoText: { ...fonts.body, color: '#0284C7', marginTop: 2 },
+  
+  // Modal Bottom Sheet
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  bottomSheet: { backgroundColor: palette.bgPrimary, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card, minHeight: '50%', maxHeight: '85%', padding: spacing.screenPadding, ...shadows.level2 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: palette.borderSubtle, alignSelf: 'center', marginBottom: spacing.lg },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
+  sheetTitle: { ...fonts.screenTitle, color: palette.textPrimary, flex: 1 },
+  closeBtn: { fontSize: 24, color: palette.textMuted },
+  sheetScroll: { flexGrow: 1 },
+  tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xl },
+  muscleTag: { backgroundColor: palette.primarySoft, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, borderRadius: radius.inner },
+  muscleTagText: { ...fonts.caption, color: palette.primary },
+  sectionHeader: { ...fonts.sectionHeader, color: palette.textPrimary, marginBottom: spacing.md },
+  stepsWrap: { marginBottom: spacing.xl },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm, paddingRight: spacing.md },
+  stepDot: { ...fonts.body, color: palette.primary, marginRight: spacing.sm, fontSize: 18, lineHeight: 22 },
+  stepText: { ...fonts.body, color: palette.textSecondary, flex: 1, lineHeight: 22 },
+  tipBox: { flexDirection: 'row', backgroundColor: palette.warningSoft, padding: spacing.lg, borderRadius: radius.inner },
+  tipIcon: { fontSize: 20, marginRight: spacing.sm },
+  tipText: { ...fonts.body, color: '#92400E', flex: 1 },
+  missingDetailBox: { alignItems: 'center', padding: spacing.xl, backgroundColor: palette.bgSecondary, borderRadius: radius.card, marginTop: spacing.lg },
+  missingDetailIcon: { fontSize: 32, marginBottom: spacing.md },
+  missingDetailText: { ...fonts.bodyMedium, color: palette.textPrimary, textAlign: 'center', marginBottom: spacing.xs },
+  missingFallback: { ...fonts.body, color: palette.textMuted, textAlign: 'center' },
 });
 

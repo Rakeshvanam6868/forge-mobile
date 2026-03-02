@@ -32,6 +32,11 @@ export type AdaptiveDayState = {
   currentProgramDay: number;
   lifecycleState: import('../../program/services/programStateEngine').TrainingLifecycleState;
   nextTrainingDateString: string;
+  lastCompletedSession: {
+    programDayNumber: number;
+    difficulty: string | null;
+    energy: number | null;
+  } | null;
 };
 
 /**
@@ -119,6 +124,7 @@ export const useAdaptiveDay = () => {
       currentProgramDay: programState.currentProgramDay,
       lifecycleState: programState.lifecycleState,
       nextTrainingDateString: programState.nextTrainingDateString,
+      lastCompletedSession: programState.lastCompletedSession,
     };
   }, [programState, dayDetail, exerciseHistory, energyTrend, profile, targetSession]);
 

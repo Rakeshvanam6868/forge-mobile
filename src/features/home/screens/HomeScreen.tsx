@@ -14,91 +14,59 @@ import { RecoveryCard } from '../components/RecoveryCard';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 import { SCROLL_BOTTOM_PADDING } from '../../../core/theme/layout';
 import { toDateString } from '../../../core/utils/dateUtils';
-import { GridDay } from '../services/consistencyEngine'; // Temporarily keeping the prop type
 import { UserEvent } from '../../analytics/types/analytics';
-
-// Inline Grid builder from user_events directly (replaces consistencyEngine legacy loop)
-function buildGridFromEvents(events: UserEvent[], startDateStr: string): GridDay[] {
-  const todayStr = toDateString(new Date());
-  if (!startDateStr || events.length === 0) return [];
-  
-  const allDates: string[] = [];
-  const cursor = new Date(startDateStr + 'T00:00:00');
-  cursor.setHours(0, 0, 0, 0);
-  const todayDate = new Date();
-  todayDate.setHours(0, 0, 0, 0);
-
-  while (cursor.getTime() <= todayDate.getTime()) {
-    allDates.push(toDateString(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  const completedDates = new Set(events.filter(e => e.event_type === 'DAY_COMPLETED').map(e => e.event_date));
-  
-  // Note: Skipping was a legacy daily_logs feature. In user_events, skips might be STREAK_BROKEN
-  // or just absent. For now, missed = absent.
-  
-  const grid: GridDay[] = allDates.map((date) => {
-    if (date === todayStr) {
-      if (completedDates.has(date)) return { date, status: 'completed' };
-      return { date, status: 'today' };
-    }
-    
-    if (completedDates.has(date)) return { date, status: 'completed' };
-    return { date, status: 'missed' };
-  });
-
-  // Second pass: 3+ consecutive misses → red
-  let i = 0;
-  while (i < grid.length) {
-    if (grid[i].status === 'missed') {
-      let runStart = i;
-      while (i < grid.length && grid[i].status === 'missed') {
-        i++;
-      }
-      if (i - runStart >= 3) {
-        for (let j = runStart; j < i; j++) {
-          grid[j] = { ...grid[j], status: 'missed_long' };
-        }
-      }
-    } else {
-      i++;
-    }
-  }
-
-  return grid;
-}
-
+import { getTodayState, buildConsistencyGrid } from '../../program/services/continuitySelectors';
+import { useUserProfile } from '../../onboarding/hooks/useUserProfile';
 
 export const HomeScreen = () => {
   const { state: programState, isLoading: isProgramLoading } = useProgramState();
   const { analytics, events, isLoading: isAnalyticsLoading } = useAnalytics();
+  const { profile, isLoading: isProfileLoading } = useUserProfile();
   
   const handleLogout = async () => { try { await authService.signOut(); } catch (e) { console.error('Logout failed:', e); } };
 
-  if (isProgramLoading || isAnalyticsLoading || !programState || !analytics || !events) {
+  if (isProgramLoading || isAnalyticsLoading || isProfileLoading || !programState || !analytics || !events) {
     return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={palette.primary} /></View>;
   }
 
-  const grid = useMemo(() => {
+  const { todayState, nextDateStr, backendGrid, currentStreak } = useMemo(() => {
     const start = analytics.firstSeenDate || toDateString(new Date());
-    return buildGridFromEvents(events, start);
-  }, [events, analytics.firstSeenDate]);
+    const tState = getTodayState(start, toDateString(new Date()), profile?.weekly_frequency, events);
+    const { nextTrainingDateStr, grid, currentStreak } = buildConsistencyGrid(start, toDateString(new Date()), profile?.weekly_frequency, events);
+    
+    // Format nextDateStr nicely
+    const today = toDateString(new Date());
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = toDateString(tomorrow);
+    
+    let displayDate = nextTrainingDateStr;
+    if (nextTrainingDateStr === today) displayDate = 'Today';
+    else if (nextTrainingDateStr === tomorrowStr) displayDate = 'Tomorrow';
+    else {
+      displayDate = new Date(nextTrainingDateStr + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long' });
+    }
+
+    return { todayState: tState, nextDateStr: displayDate, backendGrid: grid, currentStreak };
+  }, [events, analytics.firstSeenDate, profile?.weekly_frequency]);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* 👋 Greeting */}
       <GreetingHeader />
 
-      <RecoveryCard visible={false} />
+      <RecoveryCard 
+        visible={todayState === 'RECOVERY'} 
+        nextTrainingDateString={nextDateStr} 
+      />
 
       {/* ══════ HERO STREAK (gradient) ══════ */}
       <GradientCard colors={['#1E293B', '#2D3A4F']}>
         <View style={styles.heroContent}>
           <Text style={styles.heroFlame}>🔥</Text>
-          <Text style={styles.heroNum}>{analytics.streakIntelligence.currentStreak}</Text>
+          <Text style={styles.heroNum}>{currentStreak}</Text>
           <Text style={styles.heroLabel}>Day Streak</Text>
-          <Text style={styles.heroMeta}>Adaptive Timeline · Best: {analytics.streakIntelligence.longestStreak}</Text>
+          <Text style={styles.heroMeta}>Adaptive Timeline</Text>
         </View>
       </GradientCard>
 
@@ -113,12 +81,12 @@ export const HomeScreen = () => {
         <WeeklyPerformance 
           completedThisWeek={analytics.usage.activeDaysLast7} 
           completedThisMonth={analytics.usage.activeDaysLast30} 
-          currentStreak={analytics.streakIntelligence.currentStreak} 
+          currentStreak={currentStreak} 
         />
       </SectionBlock>
 
       <SectionBlock>
-        <ConsistencyGrid history={grid} />
+        <ConsistencyGrid history={backendGrid} />
       </SectionBlock>
 
       <View style={styles.logoutWrap}><AuthButton title="Logout" onPress={handleLogout} variant="outline" /></View>
