@@ -4,12 +4,13 @@ import {
   TouchableOpacity, Alert, Modal, Pressable
 } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import exercisesData from '../data/exercises.json';
+// import exercisesData from '../data/exercises.json'; // Replaced by useExerciseDetail
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useAdaptiveDay } from '../hooks/useAdaptiveDay';
 import { upsertExerciseHistory } from '../services/exerciseHistoryQueries';
 import { Difficulty, AdaptedWorkout } from '../services/adaptiveEngine';
 import { useRetention } from '../../retention/hooks/useRetention';
+import { useExerciseDetail } from '../hooks/useExerciseDetail';
 import { AuthButton } from '../../auth/components/AuthButton';
 import { Badge } from '../../../core/components/Badge';
 import { PrimaryCard } from '../../../core/components/PrimaryCard';
@@ -55,8 +56,11 @@ export const TodayScreen = () => {
   
   const [energyLevel, setEnergyLevel] = useState(2);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [strengthRating, setStrengthRating] = useState<number | null>(null);
+  const [pumpRating, setPumpRating] = useState<number | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const exerciseDetail = useExerciseDetail(selectedExercise);
   const justCompleted = useRef(false);
 
   useEffect(() => {
@@ -108,10 +112,35 @@ export const TodayScreen = () => {
   }
 
   // Pure UI Conditional Sub-renders based on State Machine:
-  const renderWorkoutSection = () => (
+  const renderWorkoutSection = () => {
+    const warmupBlocks = dayDetail.blocks?.filter((b: any) => b.type === 'warmup') || [];
+
+    return (
     <>
+      {warmupBlocks.map((block: any, bi: number) => (
+        <SectionBlock key={`warmup-${bi}`} title={block.title || 'Warm-up'}>
+          <PrimaryCard>
+            <View style={styles.warmupCardInner}>
+              {block.exercises.map((ex: any, ei: number) => (
+                <View key={`ex-${ei}`} style={styles.warmupRow}>
+                  <Text style={styles.warmupDot}>•</Text>
+                  <Text style={styles.warmupText}>
+                    <Text style={styles.warmupName}>{ex.name}</Text>
+                    {ex.duration ? ` - ${ex.duration}` : ''}
+                    {ex.sets || ex.reps ? ` - ` : ''}
+                    {ex.sets ? `${ex.sets} sets ` : ''}
+                    {ex.reps ? `× ${ex.reps}` : ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </PrimaryCard>
+        </SectionBlock>
+      ))}
+
       <SectionBlock title="Workout">
-        {adaptedWorkouts.map((w: AdaptedWorkout, i: number) => (
+        {adaptedWorkouts.map((w: AdaptedWorkout, i: number) => {
+          return (
           <TouchableOpacity key={w.id} activeOpacity={0.8} onPress={() => setSelectedExercise(w.exercise_name)}>
             <PrimaryCard state={w.isAdapted ? 'adapted' : 'default'} accentColor={w.isAdapted ? palette.accentAmber : undefined}>
               <View style={styles.exerciseRow}>
@@ -125,21 +154,45 @@ export const TodayScreen = () => {
                     {w.adaptedSets ? `${w.adaptedSets} sets` : ''}
                     {w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}
                     {w.duration ? ` · ${w.duration}` : ''}
+                    {w.restSec ? ` · ${w.restSec}s rest` : ''}
                   </Text>
+                  
+                  {/* NEW AI DATA FIELDS */}
+                  {(w.load || w.cue) && (
+                    <View style={styles.aiMetaRow}>
+                      {w.load && (
+                        <View style={styles.aiMetaBadge}>
+                          <Text style={styles.aiMetaBadgeText}>⚖️ {w.load}</Text>
+                        </View>
+                      )}
+                      {w.cue && (
+                        <Text style={styles.aiCueText} numberOfLines={1}>💡 {w.cue}</Text>
+                      )}
+                    </View>
+                  )}
+
+                  {w.progression && (
+                    <View style={styles.progressionBox}>
+                      <Text style={styles.progressionText}>↑ Next: {w.progression}</Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </PrimaryCard>
           </TouchableOpacity>
-        ))}
+        )})}
       </SectionBlock>
 
       <View style={styles.actionSection}>
         {renderFeedback('How was this workout?', DIFFICULTIES.map((d) => ({ key: d.value, emoji: d.emoji, label: d.label })), difficulty, setDifficulty)}
         {renderFeedback('How is your energy?', ENERGIES.map((e) => ({ key: String(e.level), emoji: e.emoji, label: e.label })), String(energyLevel), (v: string) => setEnergyLevel(parseInt(v, 10)))}
+        {/* {renderRating('Strength Rating (1-10)', strengthRating, setStrengthRating)}
+        {renderRating('Pump Rating (1-10)', pumpRating, setPumpRating)} */}
         <AuthButton title={completeToday.isPending || saveHistory.isPending ? 'Saving...' : 'Complete Day'} onPress={handleDone} disabled={completeToday.isPending || saveHistory.isPending} />
       </View>
     </>
-  );
+    );
+  };
 
   const renderCompletedState = () => (
     <View style={styles.completedContainer}>
@@ -278,25 +331,16 @@ export const TodayScreen = () => {
             
             <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
               {(() => {
-                const exKey = selectedExercise ? Object.keys(exercisesData).find(k => k.toLowerCase() === selectedExercise.toLowerCase()) : null;
-                const details = exKey ? (exercisesData as any)[exKey] : null;
+                const details = exerciseDetail.data;
 
                 if (!details) {
-                  return (
-                    <View style={styles.missingDetailBox}>
-                      <Text style={styles.missingDetailIcon}>ℹ️</Text>
-                      <Text style={styles.missingDetailText}>Details for this exercise will be added soon.</Text>
-                      <Text style={styles.missingFallback}>Focus on form and safety!</Text>
-                    </View>
-                  );
+                  return null; // Empty section if no data per requirements
                 }
 
                 return (
                   <>
                     <View style={styles.tagWrap}>
-                      {details.muscles.map((m: string) => (
-                        <View key={m} style={styles.muscleTag}><Text style={styles.muscleTagText}>{m}</Text></View>
-                      ))}
+                      <View style={styles.muscleTag}><Text style={styles.muscleTagText}>{details.primaryMuscle}</Text></View>
                     </View>
                     
                     <Text style={styles.sectionHeader}>How to perform</Text>
@@ -309,11 +353,43 @@ export const TodayScreen = () => {
                       ))}
                     </View>
 
-                    <Text style={styles.sectionHeader}>Pro Tip</Text>
-                    <View style={styles.tipBox}>
-                      <Text style={styles.tipIcon}>💡</Text>
-                      <Text style={styles.tipText}>{details.tips}</Text>
-                    </View>
+                    {details.formCues && details.formCues.length > 0 && (
+                      <>
+                        <Text style={styles.sectionHeader}>Form Cues</Text>
+                        <View style={styles.stepsWrap}>
+                          {details.formCues.map((cue: string, index: number) => (
+                            <View key={index} style={styles.stepRow}>
+                              <Text style={styles.stepDot}>💡</Text>
+                              <Text style={styles.stepText}>{cue}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </>
+                    )}
+
+                    {details.beginnerLoadTip && (
+                      <>
+                        <Text style={styles.sectionHeader}>Beginner Weight Selection</Text>
+                        <View style={styles.tipBox}>
+                          <Text style={styles.tipIcon}>⚖️</Text>
+                          <Text style={styles.tipText}>{details.beginnerLoadTip}</Text>
+                        </View>
+                      </>
+                    )}
+
+                    {details.commonMistakes && details.commonMistakes.length > 0 && (
+                      <>
+                        <Text style={styles.sectionHeader}>Common Mistakes</Text>
+                        <View style={styles.stepsWrap}>
+                          {details.commonMistakes.map((mistake: string, index: number) => (
+                            <View key={index} style={styles.stepRow}>
+                              <Text style={styles.stepDot}>⚠️</Text>
+                              <Text style={styles.stepText}>{mistake}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </>
+                    )}
                   </>
                 );
               })()}
@@ -335,6 +411,21 @@ function renderFeedback(title: string, items: { key: string; emoji: string; labe
           <TouchableOpacity key={it.key} style={[styles.fbBtn, selected === it.key && styles.fbBtnActive]} onPress={() => onSelect(it.key)} activeOpacity={0.8}>
             <Text style={styles.fbEmoji}>{it.emoji}</Text>
             <Text style={[styles.fbLabel, selected === it.key && styles.fbLabelActive]}>{it.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function renderRating(title: string, value: number | null, onSelect: (val: number) => void) {
+  return (
+    <View style={styles.ratingBlock}>
+      <Text style={styles.fbTitle}>{title}</Text>
+      <View style={styles.ratingRow}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+          <TouchableOpacity key={num} style={[styles.ratingBtn, value === num && styles.ratingBtnActive]} onPress={() => onSelect(num)} activeOpacity={0.8}>
+            <Text style={[styles.ratingLabel, value === num && styles.ratingLabelActive]}>{num}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -370,6 +461,22 @@ const styles = StyleSheet.create({
   exerciseNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   exerciseName: { ...fonts.cardTitle, color: palette.textPrimary, flexShrink: 1 },
   exerciseSets: { ...fonts.body, color: palette.textSecondary, marginTop: 2 },
+  
+  // AI Optional Fields Styles
+  aiMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, flexWrap: 'wrap', gap: spacing.sm },
+  aiMetaBadge: { backgroundColor: palette.bgSecondary, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.inner },
+  aiMetaBadgeText: { ...fonts.caption, color: palette.textPrimary },
+  aiCueText: { ...fonts.caption, color: palette.textMuted, flexShrink: 1, fontStyle: 'italic' },
+  progressionBox: { backgroundColor: palette.primarySoft, alignSelf: 'flex-start', paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.inner, marginTop: spacing.xs },
+  progressionText: { ...fonts.caption, color: palette.primary, fontWeight: '600' },
+
+  // Warm-up Block Styles
+  warmupCardInner: { paddingVertical: spacing.xs },
+  warmupRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm },
+  warmupDot: { ...fonts.body, color: palette.primary, marginRight: spacing.sm, fontSize: 18, lineHeight: 22 },
+  warmupText: { ...fonts.body, color: palette.textSecondary, flex: 1, lineHeight: 22 },
+  warmupName: { color: palette.textPrimary, fontWeight: '500' },
+
   mealAdjustBanner: { backgroundColor: palette.warningSoft, borderRadius: radius.inner, padding: spacing.innerMd, marginBottom: spacing.cardGap },
   mealAdjustText: { ...fonts.bodyMedium, color: '#C2410C', textAlign: 'center' },
   mealRow: { flexDirection: 'row', alignItems: 'center' },
@@ -413,6 +520,13 @@ const styles = StyleSheet.create({
   infoTitle: { ...fonts.cardTitle, color: '#0369A1' },
   infoText: { ...fonts.body, color: '#0284C7', marginTop: 2 },
   
+  ratingBlock: { marginBottom: spacing.xl },
+  ratingRow: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: spacing.sm },
+  ratingBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: palette.bgSecondary, alignItems: 'center', justifyContent: 'center', ...shadows.level1 },
+  ratingBtnActive: { backgroundColor: palette.primary, ...shadows.focus },
+  ratingLabel: { ...fonts.body, color: palette.textMuted },
+  ratingLabelActive: { color: palette.white, fontWeight: 'bold' },
+  
   // Modal Bottom Sheet
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   bottomSheet: { backgroundColor: palette.bgPrimary, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card, minHeight: '50%', maxHeight: '85%', padding: spacing.screenPadding, ...shadows.level2 },
@@ -422,19 +536,14 @@ const styles = StyleSheet.create({
   closeBtn: { fontSize: 24, color: palette.textMuted },
   sheetScroll: { flexGrow: 1 },
   tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xl },
-  muscleTag: { backgroundColor: palette.primarySoft, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, borderRadius: radius.inner },
-  muscleTagText: { ...fonts.caption, color: palette.primary },
-  sectionHeader: { ...fonts.sectionHeader, color: palette.textPrimary, marginBottom: spacing.md },
-  stepsWrap: { marginBottom: spacing.xl },
-  stepRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm, paddingRight: spacing.md },
-  stepDot: { ...fonts.body, color: palette.primary, marginRight: spacing.sm, fontSize: 18, lineHeight: 22 },
+  muscleTag: { backgroundColor: palette.bgSecondary, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.inner },
+  muscleTagText: { ...fonts.caption, color: palette.textPrimary, fontWeight: '500' },
+  sectionHeader: { ...fonts.label, color: palette.textPrimary, marginTop: spacing.md, marginBottom: spacing.sm },
+  stepsWrap: { gap: spacing.sm },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  stepDot: { ...fonts.body, color: palette.primary, marginRight: spacing.sm, width: 20 },
   stepText: { ...fonts.body, color: palette.textSecondary, flex: 1, lineHeight: 22 },
-  tipBox: { flexDirection: 'row', backgroundColor: palette.warningSoft, padding: spacing.lg, borderRadius: radius.inner },
+  tipBox: { backgroundColor: palette.primarySoft, padding: spacing.innerMd, borderRadius: radius.card, flexDirection: 'row', alignItems: 'flex-start', marginTop: spacing.xs },
   tipIcon: { fontSize: 20, marginRight: spacing.sm },
-  tipText: { ...fonts.body, color: '#92400E', flex: 1 },
-  missingDetailBox: { alignItems: 'center', padding: spacing.xl, backgroundColor: palette.bgSecondary, borderRadius: radius.card, marginTop: spacing.lg },
-  missingDetailIcon: { fontSize: 32, marginBottom: spacing.md },
-  missingDetailText: { ...fonts.bodyMedium, color: palette.textPrimary, textAlign: 'center', marginBottom: spacing.xs },
-  missingFallback: { ...fonts.body, color: palette.textMuted, textAlign: 'center' },
+  tipText: { ...fonts.body, color: palette.primary, flex: 1, lineHeight: 22 },
 });
-

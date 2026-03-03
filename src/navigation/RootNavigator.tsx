@@ -14,6 +14,7 @@ import { WeekScreen } from '../features/program/screens/WeekScreen';
 import { HomeScreen } from '../features/home/screens/HomeScreen';
 import { AnalyticsScreen } from '../features/analytics/screens/AnalyticsScreen';
 import { useRetention } from '../features/retention/hooks/useRetention';
+import { seedExerciseDetails } from '../features/program/services/exerciseDetailsRepository';
 import { palette, fonts, spacing, radius, shadows } from '../core/theme/designTokens';
 import { TAB_BAR_HEIGHT } from '../core/theme/layout';
 
@@ -46,7 +47,7 @@ const AppTabs = () => {
           bottom: 2,
           left: 16,
           right: 16,
-          backgroundColor: 'rgba(255,255,255,0.94)',
+          backgroundColor: 'rgba(255,255,255,0.94)', 
           borderRadius: radius.tabBar,
           borderTopWidth: 0,
           height: TAB_BAR_HEIGHT,
@@ -91,6 +92,13 @@ export const RootNavigator = () => {
   const { session, loading: authLoading } = useAuth();
   const { profile, isLoading: profileLoading } = useUserProfile();
   const isAppReady = !authLoading && (!session || !profileLoading);
+
+  React.useEffect(() => {
+    // Only run seeder when auth session is fully ready to prevent RLS blocks
+    if (session) {
+      seedExerciseDetails().catch(() => {});
+    }
+  }, [session]);
 
   if (!isAppReady) {
     return <View style={styles.loadScreen}><ActivityIndicator size="large" color={palette.primary} /></View>;

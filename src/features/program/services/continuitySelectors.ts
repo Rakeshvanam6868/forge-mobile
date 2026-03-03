@@ -1,5 +1,4 @@
 import { UserEvent } from '../../analytics/types/analytics';
-import { deriveRestDays } from './programStateEngine';
 
 export type ConsistencyState = 'PLANNED' | 'COMPLETED' | 'MISSED' | 'REST' | 'TODAY';
 
@@ -9,6 +8,13 @@ export type ConsistencyGridDay = {
 };
 
 export type TodayState = 'COMPLETED' | 'TARGET' | 'RECOVERY';
+
+export function deriveRestDays(frequency?: string): number {
+  if (frequency === '5+') return 0; // everyday
+  if (frequency === '3-4') return 1; // alternate day
+  if (frequency === '1-2') return 3; // few days a week
+  return 1; // Default
+}
 
 export function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T00:00:00');

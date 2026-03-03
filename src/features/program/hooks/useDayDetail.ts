@@ -10,6 +10,40 @@ export type Workout = {
   duration: string | null;
   video_url: string | null;
   order_index: number;
+  
+  // New AI Compatible Optional Fields
+  restSec?: number;
+  load?: string;
+  tempo?: string;
+  cue?: string;
+  progression?: string;
+};
+
+export type Exercise = {
+  name: string;
+  sets?: number;
+  reps?: string;
+  restSec?: number;
+  load?: string;
+  tempo?: string;
+  cue?: string;
+  progression?: string;
+};
+
+export type ExerciseDetail = {
+  id: string;
+  name: string;
+  primaryMuscle: string;
+  steps: string[];
+  formCues: string[];
+  beginnerLoadTip: string;
+  commonMistakes: string[];
+};
+
+export type SessionBlock = {
+  title: string;
+  type: 'warmup' | 'primary' | 'accessory' | 'finisher' | 'core';
+  exercises: Exercise[];
 };
 
 export type Meal = {
@@ -27,6 +61,7 @@ export type DayDetail = {
   dayNumber: number;
   workouts: Workout[];
   meals: Meal[];
+  blocks?: SessionBlock[]; // AI Content
 };
 
 /**
@@ -65,13 +100,25 @@ export const useDayDetail = (dayId: string | undefined) => {
 
       if (mErr) throw mErr;
 
+      // Map workouts with spread to preserve AI compatible fields
+      const mappedWorkouts = (workouts ?? []).map((w: any) => {
+        const mapped = {
+          ...w,
+          // DB returns snake_case for rest_sec, so map it explicitly if there
+          restSec: w.rest_sec !== undefined ? w.rest_sec : w.restSec,
+        };
+        return mapped;
+      }) as Workout[];
+
       return {
+        ...day,
         dayId: day.id,
         title: day.title,
         focusType: day.focus_type,
         dayNumber: day.day_number,
-        workouts: (workouts ?? []) as Workout[],
+        workouts: mappedWorkouts,
         meals: (meals ?? []) as Meal[],
+        blocks: day.blocks,
       };
     },
     enabled: !!dayId,

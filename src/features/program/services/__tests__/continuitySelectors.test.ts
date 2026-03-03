@@ -77,4 +77,41 @@ describe('Continuity Selectors', () => {
     console.log('Today is Training Day?', result.isTodayTrainingDay);
     console.log('Next Training Date:', result.nextTrainingDateStr);
   });
+
+  it('Scenario 4: Two completions in one day -> no streak corruption', () => {
+    const events = [
+      createEvent(START_DATE, 'PROGRAM_STARTED'),
+      createEvent('2026-03-01'), // Completed Day 1
+      createEvent('2026-03-01'), // Completed Day 1 again (e.g., glitch or double session)
+    ];
+    // Check 2026-03-02
+    const result = buildConsistencyGrid(START_DATE, '2026-03-02', '5+', events);
+    
+    // Streak should be 1 (for the 03-01 completion), not artificially inflated
+    expect(result.currentStreak).toBe(1);
+    
+    const day1GridNode = result.grid.find(g => g.date === '2026-03-01');
+    expect(day1GridNode?.state).toBe('COMPLETED');
+  });
+
+  it('Scenario 5: Completion after midnight -> mapped to logical training date', () => {
+    const events: UserEvent[] = [
+      createEvent(START_DATE, 'PROGRAM_STARTED'),
+      {
+         id: 'evt-2026-03-01-late',
+         user_id: 'user-1',
+         event_type: 'DAY_COMPLETED',
+         event_date: '2026-03-01', // Logical date chosen by UI
+         event_meta: {},
+         created_at: '2026-03-02T01:30:00Z', // Actual DB timestamp 1:30 AM next day
+      }
+    ];
+    
+    const result = buildConsistencyGrid(START_DATE, '2026-03-01', '5+', events);
+    const todayState = getTodayState(START_DATE, '2026-03-01', '5+', events);
+    
+    // Engine must trust event_date, ignoring created_at
+    expect(todayState).toBe('COMPLETED');
+    expect(result.currentStreak).toBe(1);
+  });
 });

@@ -46,12 +46,7 @@ export type ProgramStateResolution = {
   timeline: TimelineDay[];
 };
 
-export function deriveRestDays(frequency?: string): number {
-  if (frequency === '5+') return 0; // everyday
-  if (frequency === '3-4') return 1; // alternate day
-  if (frequency === '1-2') return 3; // few days a week
-  return 1; // Default
-}
+
 
 export function formatNextTrainingDate(lastCompletedDateStr: string | null, frequency: string | undefined, todayLocalDateStr: string): string {
   if (!lastCompletedDateStr) return 'Today';
@@ -117,7 +112,7 @@ export function getUserTrainingLifecycleState(
   return 'READY_TO_TRAIN_TODAY';
 }
 
-import { buildConsistencyGrid, getStartDate } from './continuitySelectors';
+import { buildConsistencyGrid, getStartDate, deriveRestDays } from './continuitySelectors';
 
 /**
  * resolveProgramState

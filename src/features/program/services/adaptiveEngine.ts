@@ -207,8 +207,8 @@ export const applyAdaptation = (
         }
       }
     }
-
-    return { ...w, adaptedSets, adaptedReps, isAdapted };
+    const adaptedWorkout = { ...w, adaptedSets, adaptedReps, isAdapted };
+    return adaptedWorkout;
   });
 };
 
