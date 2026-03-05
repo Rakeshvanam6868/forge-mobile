@@ -78,9 +78,10 @@ export const useDayDetail = (dayId: string | undefined) => {
         .from('program_days')
         .select('*')
         .eq('id', dayId)
-        .single();
+        .maybeSingle();
 
       if (dayError) throw dayError;
+      if (!day) return null;
 
       // Fetch workouts
       const { data: workouts, error: wErr } = await supabase
@@ -107,6 +108,7 @@ export const useDayDetail = (dayId: string | undefined) => {
           // DB returns snake_case for rest_sec, so map it explicitly if there
           restSec: w.rest_sec !== undefined ? w.rest_sec : w.restSec,
         };
+        console.log('[useDayDetail] Output Workout Row:', mapped);
         return mapped;
       }) as Workout[];
 

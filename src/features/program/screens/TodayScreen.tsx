@@ -51,7 +51,7 @@ function getRecoveryInsight(difficulty: string | null, energy: number | null): s
 export const TodayScreen = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { adaptiveState, isLoading, completeToday } = useAdaptiveDay();
+  const { adaptiveState, lifecycleState: hookLifecycle, isLoading, isError: hookIsError, completeToday } = useAdaptiveDay();
   const { logEvent } = useRetention();
   
   const [energyLevel, setEnergyLevel] = useState(2);
@@ -60,8 +60,24 @@ export const TodayScreen = () => {
   const [pumpRating, setPumpRating] = useState<number | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const exerciseDetail = useExerciseDetail(selectedExercise);
   const justCompleted = useRef(false);
+
+  // Fallback timeout to prevent infinite loading loop (especially Day 2 issue)
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (isLoading) {
+      console.log('[TodayScreen] Fetching session started...');
+      timeoutId = setTimeout(() => {
+        setLoadError('Session could not be loaded. Please check your connection or try restarting the app.');
+        console.warn('[TodayScreen] Loader timeout hit! Session generation might have failed.');
+      }, 5000);
+    } else {
+      setLoadError(null);
+    }
+    return () => clearTimeout(timeoutId);
+  }, [isLoading]);
 
   useEffect(() => {
     if (adaptiveState?.workoutType) logEvent('DAY_VIEWED', { workoutType: adaptiveState.workoutType });
@@ -101,15 +117,37 @@ export const TodayScreen = () => {
     });
   }, [completeToday, saveHistory, energyLevel, difficulty, adaptiveState]);
 
-  if (isLoading || !adaptiveState) {
+  if (loadError || hookIsError) {
+    return (
+      <View style={[styles.screen, styles.center]}>
+        <Text style={{ fontSize: 40, marginBottom: 16 }}>⚠️</Text>
+        <Text style={[styles.emptyText, { textAlign: 'center', paddingHorizontal: 32 }]}>
+          {loadError || 'An error occurred while loading your session.'}
+        </Text>
+        <TouchableOpacity 
+          style={{ marginTop: 24, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: palette.primary, borderRadius: 8 }}
+          onPress={() => {
+            setLoadError(null);
+            queryClient.invalidateQueries({ queryKey: ['programStructure'] });
+            queryClient.invalidateQueries({ queryKey: ['userEvents'] });
+            queryClient.invalidateQueries({ queryKey: ['dayDetail'] });
+          }}
+        >
+          <Text style={{ color: palette.white, fontWeight: 'bold' }}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (isLoading) {
     return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={palette.primary} /></View>;
   }
 
-  const { dayDetail, adaptivePlan, adaptedWorkouts, workoutType, uiLabel, uiSubLabel, lifecycleState, nextTrainingDateString } = adaptiveState;
-
-  if (!dayDetail || lifecycleState === 'NOT_STARTED') {
+  if (hookLifecycle === 'NOT_STARTED' || !adaptiveState || !adaptiveState.dayDetail) {
     return <View style={[styles.screen, styles.center]}><Text style={styles.emptyText}>No program found. Complete onboarding first.</Text></View>;
   }
+
+  const { dayDetail, adaptivePlan, adaptedWorkouts, workoutType, uiLabel, uiSubLabel, lifecycleState, nextTrainingDateString } = adaptiveState;
 
   // Pure UI Conditional Sub-renders based on State Machine:
   const renderWorkoutSection = () => {
@@ -140,6 +178,7 @@ export const TodayScreen = () => {
 
       <SectionBlock title="Workout">
         {adaptedWorkouts.map((w: AdaptedWorkout, i: number) => {
+          // console.log('[TodayScreen] Rendering Exercise Row:', w);
           return (
           <TouchableOpacity key={w.id} activeOpacity={0.8} onPress={() => setSelectedExercise(w.exercise_name)}>
             <PrimaryCard state={w.isAdapted ? 'adapted' : 'default'} accentColor={w.isAdapted ? palette.accentAmber : undefined}>

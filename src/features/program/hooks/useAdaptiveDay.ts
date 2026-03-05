@@ -50,13 +50,17 @@ export const useAdaptiveDay = () => {
   const { user } = useAuth();
   const { profile } = useUserProfile();
   const { data: program, isLoading: progLoading } = useCurrentProgram();
-  const { state: programState, isLoading: stateLoading, completeToday } = useProgramState();
+  const { state: programState, isLoading: stateLoading, isError: programStateError, completeToday } = useProgramState();
 
   // 1. Identify Target from Engine
   const targetSession = programState?.nextSession;
 
   // 2. Fetch specific base day payload
-  const { data: dayDetail, isLoading: dayLoading } = useDayDetail(targetSession?.id);
+  const { data: dayDetail, isLoading: dayLoading, isError: dayError, error: dError } = useDayDetail(targetSession?.id);
+  
+  if (dError) {
+    console.error('[useAdaptiveDay] Day detail fetch error:', dError);
+  }
 
   // 3. Fetch feedback history
   const { data: exerciseHistory } = useQuery({
@@ -130,7 +134,9 @@ export const useAdaptiveDay = () => {
 
   return {
     adaptiveState,
-    isLoading: progLoading || stateLoading || dayLoading,
+    lifecycleState: programState?.lifecycleState || 'NOT_STARTED',
+    isLoading: progLoading || stateLoading || (!!targetSession?.id && dayLoading),
+    isError: programStateError || dayError,
     completeToday,
   };
 };

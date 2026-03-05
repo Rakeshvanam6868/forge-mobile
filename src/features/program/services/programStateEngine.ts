@@ -2,9 +2,12 @@ import { UserEvent } from '../../analytics/types/analytics';
 import { ProgramDay } from '../hooks/useWeekPlan';
 
 export function getDaysDifference(dateStr1: string, dateStr2: string): number {
-  const d1 = new Date(dateStr1 + 'T00:00:00');
-  const d2 = new Date(dateStr2 + 'T00:00:00');
-  return Math.floor(Math.abs(d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24));
+  if (!dateStr1 || !dateStr2) return 0;
+  const [y1, m1, d1] = dateStr1.split('-').map(Number);
+  const [y2, m2, d2] = dateStr2.split('-').map(Number);
+  const utc1 = Date.UTC(y1, m1 - 1, d1);
+  const utc2 = Date.UTC(y2, m2 - 1, d2);
+  return Math.floor(Math.abs(utc1 - utc2) / (1000 * 60 * 60 * 24));
 }
 
 export type SessionState = 'COMPLETED' | 'TARGET' | 'UPCOMING' | 'MISSED';

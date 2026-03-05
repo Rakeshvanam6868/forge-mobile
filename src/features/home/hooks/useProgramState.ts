@@ -16,7 +16,7 @@ export const useProgramState = () => {
   const { data: program } = useCurrentProgram();
 
   // 1. Fetch ALL user_events (Single source of truth for Analytics & Program State)
-  const { data: events, isLoading: isEventsLoading } = useQuery({
+  const { data: events, isLoading: isEventsLoading, isError: isEventsError } = useQuery({
     queryKey: ['userEvents', user?.id],
     queryFn: async (): Promise<UserEvent[]> => {
       const { data, error } = await supabase
@@ -32,7 +32,7 @@ export const useProgramState = () => {
   });
 
   // 2. Fetch the full active Program Structure (Flat list of days)
-  const { data: programStructure, isLoading: isStructureLoading } = useQuery({
+  const { data: programStructure, isLoading: isStructureLoading, isError: isStructureError } = useQuery({
     queryKey: ['programStructure', program?.id],
     queryFn: async (): Promise<ProgramDay[]> => {
       if (!program?.id) return [];
@@ -76,9 +76,9 @@ export const useProgramState = () => {
 
   // 3. Resolve Program State purely from events and structure
   const state = useMemo<ProgramStateResolution | null>(() => {
-    if (!events || !programStructure) return null;
+    if (!events) return null;
     const today = toDateString(new Date());
-    return resolveProgramState(events, programStructure, profile, today);
+    return resolveProgramState(events, programStructure || [], profile, today);
   }, [events, programStructure, profile]);
 
   // 4. Completion Mutation (Atomic & Event-driven)
@@ -118,11 +118,14 @@ export const useProgramState = () => {
     },
   });
 
-  const isLoading = isEventsLoading || isStructureLoading || !state;
+  const isStructureQueryLoading = !!program?.id && isStructureLoading;
+  const isLoading = isEventsLoading || isStructureQueryLoading || (!state && !isEventsError && !isStructureError);
+  const isError = isEventsError || isStructureError;
 
   return {
     state,
     isLoading,
+    isError,
     completeToday,
   };
 };

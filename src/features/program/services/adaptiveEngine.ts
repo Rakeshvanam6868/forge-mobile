@@ -208,6 +208,7 @@ export const applyAdaptation = (
       }
     }
     const adaptedWorkout = { ...w, adaptedSets, adaptedReps, isAdapted };
+    console.log('[adaptiveEngine] Adaptive Output:', adaptedWorkout);
     return adaptedWorkout;
   });
 };

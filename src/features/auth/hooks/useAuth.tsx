@@ -28,7 +28,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Check active sessions and sets the user
     supabase.auth.getSession().then((response) => {
       if (mounted) {
-        setSession(response.data.session);
+        if (response.error) {
+          console.warn('[AuthProvider] getSession error:', response.error.message);
+          setSession(null);
+        } else {
+          setSession(response.data.session);
+        }
+        setLoading(false);
+      }
+    }).catch((err) => {
+      console.error('[AuthProvider] getSession exception:', err);
+      if (mounted) {
+        setSession(null);
         setLoading(false);
       }
     });
