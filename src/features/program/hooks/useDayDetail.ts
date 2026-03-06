@@ -100,6 +100,10 @@ export const useDayDetail = (dayId: string | undefined) => {
         .order('meal_type', { ascending: true });
 
       if (mErr) throw mErr;
+      
+      console.log('[DEBUG] useDayDetail -> day:', day);
+      console.log('[DEBUG] useDayDetail -> workouts:', workouts);
+      console.log('[DEBUG] useDayDetail -> meals:', meals);
 
       // Map workouts with spread to preserve AI compatible fields
       const mappedWorkouts = (workouts ?? []).map((w: any) => {

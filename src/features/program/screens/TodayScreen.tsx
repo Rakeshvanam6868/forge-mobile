@@ -4,6 +4,7 @@ import {
   TouchableOpacity, Alert, Modal, Pressable
 } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigation } from '@react-navigation/native';
 // import exercisesData from '../data/exercises.json'; // Replaced by useExerciseDetail
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useAdaptiveDay } from '../hooks/useAdaptiveDay';
@@ -11,6 +12,7 @@ import { upsertExerciseHistory } from '../services/exerciseHistoryQueries';
 import { Difficulty, AdaptedWorkout } from '../services/adaptiveEngine';
 import { useRetention } from '../../retention/hooks/useRetention';
 import { useExerciseDetail } from '../hooks/useExerciseDetail';
+import { supabase } from '../../../core/supabase/client';
 import { AuthButton } from '../../auth/components/AuthButton';
 import { Badge } from '../../../core/components/Badge';
 import { PrimaryCard } from '../../../core/components/PrimaryCard';
@@ -53,6 +55,7 @@ export const TodayScreen = () => {
   const queryClient = useQueryClient();
   const { adaptiveState, lifecycleState: hookLifecycle, isLoading, isError: hookIsError, completeToday } = useAdaptiveDay();
   const { logEvent } = useRetention();
+  const navigation = useNavigation<any>();
   
   const { scrollBottomPadding } = useLayoutTokens();
   const [energyLevel, setEnergyLevel] = useState(2);
@@ -156,7 +159,28 @@ export const TodayScreen = () => {
       return (
         <SectionBlock title="Workout">
           <PrimaryCard>
-            <Text style={styles.emptyText}>No exercises available</Text>
+            <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+              <Text style={{ fontSize: 40, marginBottom: 16 }}>⚠️</Text>
+              <Text style={[styles.emptyText, { textAlign: 'center', marginBottom: 24, paddingHorizontal: 16 }]}>
+                Program data is missing or interrupted. Please reset to regenerate your training plan.
+              </Text>
+              <TouchableOpacity
+                style={{ backgroundColor: palette.primary, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 8, width: '100%', alignItems: 'center' }}
+                onPress={async () => {
+                  if (!user?.id) return;
+                  try {
+                    await supabase.from('users').update({ onboarding_completed: false }).eq('id', user.id);
+                    await supabase.from('programs').delete().eq('user_id', user.id);
+                    queryClient.invalidateQueries();
+                    navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+                  } catch (e) {
+                    Alert.alert('Error', 'Could not reset program. Please check your connection.');
+                  }
+                }}
+              >
+                <Text style={{ color: palette.white, fontWeight: 'bold' }}>Reset Program</Text>
+              </TouchableOpacity>
+            </View>
           </PrimaryCard>
         </SectionBlock>
       );
@@ -232,6 +256,18 @@ export const TodayScreen = () => {
             })}
           </SectionBlock>
         ))}
+
+        {/* Start Workout Button */}
+        <View style={styles.startWorkoutWrap}>
+          <TouchableOpacity
+            style={styles.startWorkoutBtn}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('WorkoutMode', { workouts: adaptedWorkouts })}
+          >
+            <Text style={styles.startWorkoutEmoji}>🏋️</Text>
+            <Text style={styles.startWorkoutText}>Start Workout</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.actionSection}>
         {renderFeedback('How was this workout?', DIFFICULTIES.map((d) => ({ key: d.value, emoji: d.emoji, label: d.label })), difficulty, setDifficulty)}
@@ -596,4 +632,15 @@ const styles = StyleSheet.create({
   tipBox: { backgroundColor: palette.primarySoft, padding: spacing.innerMd, borderRadius: radius.card, flexDirection: 'row', alignItems: 'flex-start', marginTop: spacing.xs },
   tipIcon: { fontSize: 20, marginRight: spacing.sm },
   tipText: { ...fonts.body, color: palette.primary, flex: 1, lineHeight: 22 },
+
+  // Start Workout Button
+  startWorkoutWrap: { paddingHorizontal: spacing.screenPadding, paddingVertical: spacing.xl },
+  startWorkoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: palette.primary, borderRadius: radius.card,
+    paddingVertical: 18, gap: 10,
+    ...shadows.button,
+  },
+  startWorkoutEmoji: { fontSize: 22 },
+  startWorkoutText: { ...fonts.button, color: palette.white, fontSize: 18 },
 });

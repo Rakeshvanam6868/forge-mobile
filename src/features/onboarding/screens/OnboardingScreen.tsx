@@ -65,7 +65,11 @@ export const OnboardingScreen = () => {
     try {
       setIsGenerating(true);
 
-      // 1. Save all profile state including new fields
+      // 1. Generate actual adaptive program (Blocks navigation)
+      // If this throws, onboarding_completed NEVER gets set to true, saving the user from a broken state!
+      await generateProgram(user.id, goal, level, environment, 'Any'); // 'Any' diet placeholder for now
+
+      // 2. Save all profile state including new fields
       await upsertProfile.mutateAsync({
         goal: goal,
         level: level,
@@ -75,9 +79,6 @@ export const OnboardingScreen = () => {
         last_workout_type: lastWorkout,
         onboarding_completed: true, // Key to bypassing this screen later
       });
-
-      // 2. Generate actual adaptive program (Blocks navigation)
-      await generateProgram(user.id, goal, level, environment, 'Any'); // 'Any' diet placeholder for now
 
       // 3. Clear all caches so the app completely re-fetches the real program/grid
       await queryClient.invalidateQueries();
