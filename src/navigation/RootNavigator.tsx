@@ -15,6 +15,8 @@ import { HomeScreen } from '../features/home/screens/HomeScreen';
 import { AnalyticsScreen } from '../features/analytics/screens/AnalyticsScreen';
 import { useRetention } from '../features/retention/hooks/useRetention';
 import { seedExerciseDetails } from '../features/program/services/exerciseDetailsRepository';
+import { WorkoutModeScreen } from '../features/workout/screens/WorkoutModeScreen';
+import { WorkoutSummaryScreen } from '../features/workout/screens/WorkoutSummaryScreen';
 import { palette, fonts, spacing, radius, shadows } from '../core/theme/designTokens';
 import { TAB_BAR_HEIGHT } from '../core/theme/layout';
 
@@ -81,7 +83,19 @@ const AppTabs = () => {
 const MainNavigator = ({ hasProfile }: { hasProfile: boolean }) => (
   <MainStack.Navigator screenOptions={{ headerShown: false }}>
     {hasProfile ? (
-      <MainStack.Screen name="AppTabs" component={AppTabs} />
+      <>
+        <MainStack.Screen name="AppTabs" component={AppTabs} />
+        <MainStack.Screen
+          name="WorkoutMode"
+          component={WorkoutModeScreen}
+          options={{ gestureEnabled: false, animation: 'slide_from_bottom' }}
+        />
+        <MainStack.Screen
+          name="WorkoutSummary"
+          component={WorkoutSummaryScreen}
+          options={{ gestureEnabled: false }}
+        />
+      </>
     ) : (
       <MainStack.Screen name="Onboarding" component={OnboardingScreen} />
     )}
