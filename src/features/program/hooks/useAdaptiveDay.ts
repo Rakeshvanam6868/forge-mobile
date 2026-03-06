@@ -16,6 +16,7 @@ import {
   getLastNEnergyLogs,
 } from '../services/exerciseHistoryQueries';
 import { WorkoutType } from '../services/adaptiveEntryEngine';
+import { EXERCISE_POOL } from '../data/exercisePools';
 
 export type AdaptiveDayState = {
   // Base data
@@ -24,6 +25,7 @@ export type AdaptiveDayState = {
   workoutType: WorkoutType;
   adaptivePlan: AdaptivePlan;
   adaptedWorkouts: AdaptedWorkout[];
+  sections: { title: string; data: AdaptedWorkout[] }[];
   uiLabel: string;
   uiSubLabel: string;
   // State from consistency engine
@@ -116,6 +118,48 @@ export const useAdaptiveDay = () => {
       uiLabel = `Based on your previous Day ${lastSession.programDayNumber}`;
     }
 
+    const sectionsMap: Record<string, AdaptedWorkout[]> = {
+      'Warmup': [],
+      'Compound': [],
+      'Accessory (Primary)': [],
+      'Accessory (Secondary)': [],
+      'Isolation': [],
+      'Core/Cardio': [],
+    };
+
+    let accessoryCount = 0;
+    adaptedWorkouts.forEach(w => {
+      const poolEx = EXERCISE_POOL.find(e => e.name === w.exercise_name);
+      const cat = poolEx?.category || 'accessory';
+      
+      (w as any).poolCategory = cat;
+      (w as any).poolEquipment = poolEx?.equipment || [];
+      (w as any).poolId = poolEx?.id;
+
+      if (cat === 'warmup') {
+        sectionsMap['Warmup'].push(w);
+      } else if (cat === 'compound') {
+        sectionsMap['Compound'].push(w);
+      } else if (cat === 'isolation') {
+        sectionsMap['Isolation'].push(w);
+      } else if (cat === 'core_cardio') {
+        sectionsMap['Core/Cardio'].push(w);
+      } else {
+        if (accessoryCount === 0) {
+          sectionsMap['Accessory (Primary)'].push(w);
+          accessoryCount++;
+        } else {
+          sectionsMap['Accessory (Secondary)'].push(w);
+        }
+      }
+    });
+
+    const sections = Object.keys(sectionsMap)
+      .filter(key => sectionsMap[key].length > 0)
+      .map(key => ({ title: key, data: sectionsMap[key] }));
+
+    console.log('[DEBUG] Generated workout:', sections);
+
     return {
       dayDetail,
       workoutType: targetSession.focus_type as WorkoutType,
@@ -123,6 +167,7 @@ export const useAdaptiveDay = () => {
       uiSubLabel: uiLabel,
       adaptivePlan: plan,
       adaptedWorkouts,
+      sections,
       todayCompleted: programState.isTodayCompleted,
       todayCardState: programState.todayCardState,
       currentProgramDay: programState.currentProgramDay,

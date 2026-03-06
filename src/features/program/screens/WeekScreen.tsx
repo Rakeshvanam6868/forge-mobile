@@ -5,22 +5,26 @@ import { Badge } from '../../../core/components/Badge';
 import { SectionBlock } from '../../../core/components/SectionBlock';
 import { GreetingHeader } from '../../../core/components/GreetingHeader';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
-import { SCROLL_BOTTOM_PADDING } from '../../../core/theme/layout';
+import { useLayoutTokens } from '../../../core/theme/layout';
 
 const FOCUS_ICONS: Record<string, string> = { strength: '💪', cardio: '🏃', mobility: '🧘', rest: '😴' };
 
 export const WeekScreen = () => {
-  const { state, isLoading: stateLoading } = useProgramState();
+  const { state: programState, isLoading } = useProgramState();
+  const { scrollBottomPadding } = useLayoutTokens();
 
-  if (stateLoading || !state) {
+  if (isLoading || !programState) {
     return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={palette.primary} /></View>;
   }
 
   // Pure UI mapping: Read directly from derived timeline
-  const timeline = state.timeline;
+  const timeline = programState.timeline;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
+      showsVerticalScrollIndicator={false}
+    >
       <GreetingHeader />
 
       <View style={styles.header}>
@@ -80,7 +84,7 @@ export const WeekScreen = () => {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bgPrimary },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: spacing.screenPadding, paddingTop: 56, paddingBottom: SCROLL_BOTTOM_PADDING },
+  content: { padding: spacing.screenPadding, paddingTop: 56 },
   
   header: { marginBottom: spacing.innerSm },
   caption: { ...fonts.badge, color: palette.primary, marginBottom: spacing.xs },

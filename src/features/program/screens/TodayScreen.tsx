@@ -19,7 +19,7 @@ import { GradientCard } from '../../../core/components/GradientCard';
 import { GreetingHeader } from '../../../core/components/GreetingHeader';
 import { CelebrationOverlay } from '../../../core/components/CelebrationOverlay';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
-import { SCROLL_BOTTOM_PADDING } from '../../../core/theme/layout';
+import { useLayoutTokens } from '../../../core/theme/layout';
 
 const ENERGIES = [
   { level: 1, emoji: '😫', label: 'Low' },
@@ -54,6 +54,7 @@ export const TodayScreen = () => {
   const { adaptiveState, lifecycleState: hookLifecycle, isLoading, isError: hookIsError, completeToday } = useAdaptiveDay();
   const { logEvent } = useRetention();
   
+  const { scrollBottomPadding } = useLayoutTokens();
   const [energyLevel, setEnergyLevel] = useState(2);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [strengthRating, setStrengthRating] = useState<number | null>(null);
@@ -147,82 +148,92 @@ export const TodayScreen = () => {
     return <View style={[styles.screen, styles.center]}><Text style={styles.emptyText}>No program found. Complete onboarding first.</Text></View>;
   }
 
-  const { dayDetail, adaptivePlan, adaptedWorkouts, workoutType, uiLabel, uiSubLabel, lifecycleState, nextTrainingDateString } = adaptiveState;
+  const { dayDetail, adaptivePlan, adaptedWorkouts, sections, workoutType, uiLabel, uiSubLabel, lifecycleState, nextTrainingDateString } = adaptiveState;
 
   // Pure UI Conditional Sub-renders based on State Machine:
   const renderWorkoutSection = () => {
-    const warmupBlocks = dayDetail.blocks?.filter((b: any) => b.type === 'warmup') || [];
-
-    return (
-    <>
-      {warmupBlocks.map((block: any, bi: number) => (
-        <SectionBlock key={`warmup-${bi}`} title={block.title || 'Warm-up'}>
+    if (!sections || sections.length === 0) {
+      return (
+        <SectionBlock title="Workout">
           <PrimaryCard>
-            <View style={styles.warmupCardInner}>
-              {block.exercises.map((ex: any, ei: number) => (
-                <View key={`ex-${ei}`} style={styles.warmupRow}>
-                  <Text style={styles.warmupDot}>•</Text>
-                  <Text style={styles.warmupText}>
-                    <Text style={styles.warmupName}>{ex.name}</Text>
-                    {ex.duration ? ` - ${ex.duration}` : ''}
-                    {ex.sets || ex.reps ? ` - ` : ''}
-                    {ex.sets ? `${ex.sets} sets ` : ''}
-                    {ex.reps ? `× ${ex.reps}` : ''}
-                  </Text>
-                </View>
-              ))}
-            </View>
+            <Text style={styles.emptyText}>No exercises available</Text>
           </PrimaryCard>
         </SectionBlock>
-      ))}
+      );
+    }
 
-      <SectionBlock title="Workout">
-        {adaptedWorkouts.map((w: AdaptedWorkout, i: number) => {
-          // console.log('[TodayScreen] Rendering Exercise Row:', w);
-          return (
-          <TouchableOpacity key={w.id} activeOpacity={0.8} onPress={() => setSelectedExercise(w.exercise_name)}>
-            <PrimaryCard state={w.isAdapted ? 'adapted' : 'default'} accentColor={w.isAdapted ? palette.accentAmber : undefined}>
-              <View style={styles.exerciseRow}>
-                <View style={styles.stepCircle}><Text style={styles.stepNum}>{i + 1}</Text></View>
-                <View style={styles.exerciseBody}>
-                  <View style={styles.exerciseNameRow}>
-                    <Text style={styles.exerciseName} numberOfLines={2}>{w.exercise_name}</Text>
-                    {w.isAdapted && <Badge label="ADAPTED" variant="warning" />}
-                  </View>
-                  <Text style={styles.exerciseSets}>
-                    {w.adaptedSets ? `${w.adaptedSets} sets` : ''}
-                    {w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}
-                    {w.duration ? ` · ${w.duration}` : ''}
-                    {w.restSec ? ` · ${w.restSec}s rest` : ''}
-                  </Text>
-                  
-                  {/* NEW AI DATA FIELDS */}
-                  {(w.load || w.cue) && (
-                    <View style={styles.aiMetaRow}>
-                      {w.load && (
-                        <View style={styles.aiMetaBadge}>
-                          <Text style={styles.aiMetaBadgeText}>⚖️ {w.load}</Text>
+    return (
+      <>
+        {sections.map((section, sIndex) => (
+          <SectionBlock key={`sec-${sIndex}`} title={section.title}>
+            {section.data.map((w: AdaptedWorkout, i: number) => {
+              // console.log('[TodayScreen] Rendering Exercise Row:', w);
+              return (
+                <TouchableOpacity key={w.id} activeOpacity={0.8} onPress={() => setSelectedExercise((w as any).poolId)}>
+                  <PrimaryCard state={w.isAdapted ? 'adapted' : 'default'} accentColor={w.isAdapted ? palette.accentAmber : undefined}>
+                    <View style={styles.exerciseRow}>
+                      <View style={styles.stepCircle}><Text style={styles.stepNum}>{i + 1}</Text></View>
+                      <View style={styles.exerciseBody}>
+                        <View style={styles.exerciseNameRow}>
+                          <Text style={styles.exerciseName} numberOfLines={2}>{w.exercise_name}</Text>
+                          {w.isAdapted && <Badge label="ADAPTED" variant="warning" />}
                         </View>
-                      )}
-                      {w.cue && (
-                        <Text style={styles.aiCueText} numberOfLines={1}>💡 {w.cue}</Text>
-                      )}
-                    </View>
-                  )}
+                        <Text style={styles.exerciseSets}>
+                          {w.adaptedSets ? `${w.adaptedSets} sets` : ''}
+                          {w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}
+                          {w.duration ? ` · ${w.duration}` : ''}
+                          {w.restSec ? ` · ${w.restSec}s rest` : ''}
+                        </Text>
 
-                  {w.progression && (
-                    <View style={styles.progressionBox}>
-                      <Text style={styles.progressionText}>↑ Next: {w.progression}</Text>
+                        {/* CATEGORY & EQUIPMENT FIELDS */}
+                        {(((w as any).poolCategory) || ((w as any).poolEquipment?.length > 0)) && (
+                          <View style={styles.aiMetaRow}>
+                            {((w as any).poolCategory) && (
+                              <View style={[styles.aiMetaBadge, { backgroundColor: palette.primarySoft }]}>
+                                <Text style={[styles.aiMetaBadgeText, { color: palette.primary }]}>
+                                  {String((w as any).poolCategory).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                            {((w as any).poolEquipment?.length > 0) && (
+                              <View style={styles.aiMetaBadge}>
+                                <Text style={styles.aiMetaBadgeText}>
+                                  🛠️ {((w as any).poolEquipment).join(', ')}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                        
+                        {/* NEW AI DATA FIELDS */}
+                        {(w.load || w.cue) && (
+                          <View style={styles.aiMetaRow}>
+                            {w.load && (
+                              <View style={styles.aiMetaBadge}>
+                                <Text style={styles.aiMetaBadgeText}>⚖️ {w.load}</Text>
+                              </View>
+                            )}
+                            {w.cue && (
+                              <Text style={styles.aiCueText} numberOfLines={1}>💡 {w.cue}</Text>
+                            )}
+                          </View>
+                        )}
+      
+                        {w.progression && (
+                          <View style={styles.progressionBox}>
+                            <Text style={styles.progressionText}>↑ Next: {w.progression}</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  )}
-                </View>
-              </View>
-            </PrimaryCard>
-          </TouchableOpacity>
-        )})}
-      </SectionBlock>
+                  </PrimaryCard>
+                </TouchableOpacity>
+              );
+            })}
+          </SectionBlock>
+        ))}
 
-      <View style={styles.actionSection}>
+        <View style={styles.actionSection}>
         {renderFeedback('How was this workout?', DIFFICULTIES.map((d) => ({ key: d.value, emoji: d.emoji, label: d.label })), difficulty, setDifficulty)}
         {renderFeedback('How is your energy?', ENERGIES.map((e) => ({ key: String(e.level), emoji: e.emoji, label: e.label })), String(energyLevel), (v: string) => setEnergyLevel(parseInt(v, 10)))}
         {/* {renderRating('Strength Rating (1-10)', strengthRating, setStrengthRating)}
@@ -272,7 +283,7 @@ export const TodayScreen = () => {
         message="Session Complete!"
       />
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]} showsVerticalScrollIndicator={false}>
         <GreetingHeader />
 
         {lifecycleState === 'MISSED_TRAINING_DAY' && (
@@ -362,7 +373,7 @@ export const TodayScreen = () => {
           <Pressable style={styles.bottomSheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{selectedExercise}</Text>
+              <Text style={styles.sheetTitle}>{exerciseDetail.data?.name || 'Loading...'}</Text>
               <TouchableOpacity onPress={() => setSelectedExercise(null)} hitSlop={10}>
                 <Text style={styles.closeBtn}>✕</Text>
               </TouchableOpacity>
@@ -476,7 +487,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bgPrimary },
   scrollView: { flex: 1 },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: spacing.screenPadding, paddingTop: 56, paddingBottom: SCROLL_BOTTOM_PADDING },
+  content: { padding: spacing.screenPadding, paddingTop: 56 },
   emptyText: { ...fonts.body, color: palette.textMuted },
   heroCustom: { paddingVertical: spacing['2xl'], paddingHorizontal: spacing['2xl'], marginBottom: spacing.lg },
   heroInner: { flexDirection: 'row', alignItems: 'flex-start' },

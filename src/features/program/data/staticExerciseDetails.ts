@@ -4,7 +4,7 @@ import { normalizeExerciseName } from '../utils/exerciseNormalizer';
 // Static fallback data for MVP exercises ensures zero loading states for beginners
 const rawStaticExercises: ExerciseDetail[] = [
   {
-    id: 'ex-bench-press',
+    id: 'ex-db-bench-press',
     name: 'Dumbbell Bench Press',
     primaryMuscle: 'Chest',
     steps: [
@@ -56,7 +56,7 @@ const rawStaticExercises: ExerciseDetail[] = [
     commonMistakes: ['Using momentum to swing', 'Raising above shoulder level'],
   },
   {
-    id: 'ex-barbell-squat',
+    id: 'ex-bb-squat',
     name: 'Barbell Squat',
     primaryMuscle: 'Quads / Glutes',
     steps: [
@@ -83,13 +83,12 @@ const rawStaticExercises: ExerciseDetail[] = [
   },
 ];
 
-// Pre-compute normalized map for instant lookup at runtime
+// Pre-compute map for instant lookup at runtime by ID
 export const STATIC_EXERCISE_MAP = new Map<string, ExerciseDetail>(
-  rawStaticExercises.map((ex) => [normalizeExerciseName(ex.name), ex])
+  rawStaticExercises.map((ex) => [ex.id, ex])
 );
 
 // Fallback provider helper
-export function getStaticExerciseDetail(name: string): ExerciseDetail | null {
-  const normalized = normalizeExerciseName(name);
-  return STATIC_EXERCISE_MAP.get(normalized) || null;
+export function getStaticExerciseDetailById(id: string): ExerciseDetail | null {
+  return STATIC_EXERCISE_MAP.get(id) || null;
 }

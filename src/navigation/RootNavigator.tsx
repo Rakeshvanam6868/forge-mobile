@@ -16,7 +16,7 @@ import { AnalyticsScreen } from '../features/analytics/screens/AnalyticsScreen';
 import { useRetention } from '../features/retention/hooks/useRetention';
 import { seedExerciseDetails } from '../features/program/services/exerciseDetailsRepository';
 import { palette, fonts, spacing, radius, shadows } from '../core/theme/designTokens';
-import { TAB_BAR_HEIGHT } from '../core/theme/layout';
+import { useLayoutTokens } from '../core/theme/layout';
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -38,19 +38,20 @@ const TAB_ITEMS = [
 
 const AppTabs = () => {
   useRetention();
+  const { tabBarHeight, tabBarBottom } = useLayoutTokens();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
           position: 'absolute',
-          bottom: 2,
+          bottom: tabBarBottom,
           left: 16,
           right: 16,
           backgroundColor: 'rgba(255,255,255,0.94)', 
           borderRadius: radius.tabBar,
           borderTopWidth: 0,
-          height: TAB_BAR_HEIGHT,
+          height: tabBarHeight,
           paddingTop: spacing.innerSm,
           paddingBottom: spacing.innerSm,
           ...shadows.level2,

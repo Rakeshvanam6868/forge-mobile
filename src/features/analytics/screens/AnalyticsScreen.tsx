@@ -8,12 +8,13 @@ import { SectionBlock } from '../../../core/components/SectionBlock';
 import { GradientCard } from '../../../core/components/GradientCard';
 import { GreetingHeader } from '../../../core/components/GreetingHeader';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
-import { SCROLL_BOTTOM_PADDING } from '../../../core/theme/layout';
+import { useLayoutTokens } from '../../../core/theme/layout';
 
 const TREND_EMOJI: Record<string, string> = { up: '📈', down: '📉', stable: '➡️' };
 
 export const AnalyticsScreen = () => {
   const { analytics, isLoading } = useAnalytics();
+  const { scrollBottomPadding } = useLayoutTokens();
 
   if (isLoading || !analytics) {
     return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={palette.primary} /></View>;
@@ -22,7 +23,7 @@ export const AnalyticsScreen = () => {
   const { retention, activation, funnel, dropOff, streakIntelligence: si, usage, sessionDepth, consistencyScore } = analytics;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]} showsVerticalScrollIndicator={false}>
       {/* 👋 Greeting */}
       <GreetingHeader />
 
@@ -126,7 +127,7 @@ function pct(n: number): string { return `${Math.round(n * 100)}%`; }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bgPrimary },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: spacing.screenPadding, paddingTop: 56, paddingBottom: SCROLL_BOTTOM_PADDING },
+  content: { padding: spacing.screenPadding, paddingTop: 56 },
 
   heroContent: { alignItems: 'center' },
   heroLabel: { ...fonts.label, color: palette.textOnDarkMuted },

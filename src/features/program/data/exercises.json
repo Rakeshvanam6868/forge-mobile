@@ -1,6 +1,10 @@
 {
   "Squat": {
-    "muscles": ["Quads", "Glutes", "Core"],
+    "muscles": [
+      "Quads",
+      "Glutes",
+      "Core"
+    ],
     "steps": [
       "Stand with feet shoulder-width apart.",
       "Lower your hips back and down, as if sitting in a chair.",
@@ -10,7 +14,12 @@
     "tips": "Keep your knees tracking over your toes, don't let them cave inwards."
   },
   "Push-up": {
-    "muscles": ["Chest", "Shoulders", "Triceps", "Core"],
+    "muscles": [
+      "Chest",
+      "Shoulders",
+      "Triceps",
+      "Core"
+    ],
     "steps": [
       "Start in a high plank position with hands slightly wider than shoulder-width.",
       "Lower your body until your chest is just above the floor.",
@@ -20,7 +29,11 @@
     "tips": "Don't let your hips sag or hike up into a mountain shape."
   },
   "Plank": {
-    "muscles": ["Core", "Shoulders", "Back"],
+    "muscles": [
+      "Core",
+      "Shoulders",
+      "Back"
+    ],
     "steps": [
       "Rest on your forearms and toes.",
       "Keep your body in a straight line from your head to your heels.",
@@ -29,7 +42,11 @@
     "tips": "Squeeze your glutes to help maintain a straight lower back."
   },
   "Lunge": {
-    "muscles": ["Quads", "Glutes", "Hamstrings"],
+    "muscles": [
+      "Quads",
+      "Glutes",
+      "Hamstrings"
+    ],
     "steps": [
       "Step forward with one leg.",
       "Lower your hips until both knees are bent at a 90-degree angle.",
@@ -39,7 +56,10 @@
     "tips": "Ensure your front knee is directly above your ankle, not pushed out too far."
   },
   "Burpees": {
-    "muscles": ["Full Body", "Cardio"],
+    "muscles": [
+      "Full Body",
+      "Cardio"
+    ],
     "steps": [
       "Stand straight, then squat down and place your hands on the floor.",
       "Jump your feet back to a plank position.",
@@ -50,7 +70,11 @@
     "tips": "Modify by stepping back instead of jumping if needed."
   },
   "Goblet Squats": {
-    "muscles": ["Quads", "Glutes", "Core"],
+    "muscles": [
+      "Quads",
+      "Glutes",
+      "Core"
+    ],
     "steps": [
       "Hold a weight vertically against your chest.",
       "Perform a standard squat by lowering your hips back and down.",
@@ -60,7 +84,11 @@
     "tips": "Imagine sitting directly straight down between your heels."
   },
   "Glute Bridges": {
-    "muscles": ["Glutes", "Hamstrings", "Core"],
+    "muscles": [
+      "Glutes",
+      "Hamstrings",
+      "Core"
+    ],
     "steps": [
       "Lie on your back with knees bent and feet flat on the floor.",
       "Squeeze your glutes and push your hips towards the ceiling.",
@@ -70,7 +98,11 @@
     "tips": "Drive through your heels, not your toes."
   },
   "Dumbbell Rows": {
-    "muscles": ["Back", "Biceps", "Core"],
+    "muscles": [
+      "Back",
+      "Biceps",
+      "Core"
+    ],
     "steps": [
       "Hinge forward at the hips, keeping your back straight.",
       "Hold weights hanging straight down.",
@@ -80,7 +112,11 @@
     "tips": "Keep your elbows close to your body as you pull."
   },
   "Jumping Jacks": {
-    "muscles": ["Cardio", "Calves", "Shoulders"],
+    "muscles": [
+      "Cardio",
+      "Calves",
+      "Shoulders"
+    ],
     "steps": [
       "Stand upright with legs together and arms at your sides.",
       "Jump up, spreading your legs and bringing your arms above your head.",
@@ -89,12 +125,521 @@
     "tips": "Land softly on the balls of your feet."
   },
   "Farmers Walk": {
-    "muscles": ["Core", "Forearms", "Shoulders", "Traps"],
+    "muscles": [
+      "Core",
+      "Forearms",
+      "Shoulders",
+      "Traps"
+    ],
     "steps": [
       "Pick up a heavy weight in each hand.",
       "Stand tall with your shoulders pulled back and down.",
       "Walk forward with short, quick steps while maintaining a tight core."
     ],
     "tips": "Do not let the weights pull your shoulders forward."
+  },
+  "Dumbbell Bench Press": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Dumbbell Bench Press.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your wrists straight and drive forcefully."
+  },
+  "Barbell Bench Press": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Barbell Bench Press.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your wrists straight and drive forcefully."
+  },
+  "Incline Dumbbell Press": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Incline Dumbbell Press.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your wrists straight and drive forcefully."
+  },
+  "Machine Chest Press": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Machine Chest Press.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your wrists straight and drive forcefully."
+  },
+  "Dumbbell Flyes": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Dumbbell Flyes.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Cable Crossovers": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Cable Crossovers.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Resistance Band Chest Press": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Resistance Band Chest Press.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your wrists straight and drive forcefully."
+  },
+  "Arm Circles": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Arm Circles.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Pull-ups": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Pull-ups.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Lat Pulldown": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Lat Pulldown.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Barbell Row": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Barbell Row.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Squeeze shoulder blades together at the top of the movement."
+  },
+  "Seated Cable Row": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Seated Cable Row.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Squeeze shoulder blades together at the top of the movement."
+  },
+  "Straight Arm Pulldown": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Straight Arm Pulldown.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Superman Hold": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Superman Hold.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Inverted Rows (Table)": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Inverted Rows (Table).",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Squeeze shoulder blades together at the top of the movement."
+  },
+  "Cat-Cow Stretch": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Cat-Cow Stretch.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Overhead Press": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Overhead Press.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your wrists straight and drive forcefully."
+  },
+  "Lateral Raise": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Lateral Raise.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Control the eccentric (lowering) phase."
+  },
+  "Front Raise": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Front Raise.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Control the eccentric (lowering) phase."
+  },
+  "Face Pulls": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Face Pulls.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Machine Shoulder Press": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Machine Shoulder Press.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your wrists straight and drive forcefully."
+  },
+  "Shoulder Dislocations (Broomstick)": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Shoulder Dislocations (Broomstick).",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Leg Press": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Leg Press.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your wrists straight and drive forcefully."
+  },
+  "Romanian Deadlift": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Romanian Deadlift.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Leg Extensions": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Leg Extensions.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep elbows locked in place."
+  },
+  "Leg Curls": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Leg Curls.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Avoid swinging; use strict form."
+  },
+  "Calf Raises": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Calf Raises.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Control the eccentric (lowering) phase."
+  },
+  "Leg Swings": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Leg Swings.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Bicep Curls": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Bicep Curls.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Avoid swinging; use strict form."
+  },
+  "Hammer Curls": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Hammer Curls.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Avoid swinging; use strict form."
+  },
+  "Tricep Pushdown": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Tricep Pushdown.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Overhead Tricep Extension": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Overhead Tricep Extension.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep elbows locked in place."
+  },
+  "Tricep Dips": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Tricep Dips.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Bicycle Crunches": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Bicycle Crunches.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Leg Raises": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Leg Raises.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Control the eccentric (lowering) phase."
+  },
+  "Treadmill Sprints": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Treadmill Sprints.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Jogging": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Jogging.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Elliptical": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Elliptical.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Yoga Flow": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Yoga Flow.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Foam Rolling": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Foam Rolling.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Deep Stretching": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Deep Stretching.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
+  },
+  "Light Walking": {
+    "muscles": [
+      "Target Muscle Group"
+    ],
+    "steps": [
+      "1. Position yourself correctly for standard Light Walking.",
+      "2. Contract the target muscle to initiate the movement.",
+      "3. Complete the full range of motion under control.",
+      "4. Return slowly to the starting position."
+    ],
+    "tips": "Keep your core braced and breathe naturally throughout."
   }
 }

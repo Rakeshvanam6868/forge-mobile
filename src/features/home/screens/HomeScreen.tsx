@@ -12,7 +12,7 @@ import { WeeklyPerformance } from '../components/WeeklyPerformance';
 import { ConsistencyGrid } from '../components/ConsistencyGrid';
 import { RecoveryCard } from '../components/RecoveryCard';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
-import { SCROLL_BOTTOM_PADDING } from '../../../core/theme/layout';
+import { useLayoutTokens } from '../../../core/theme/layout';
 import { toDateString } from '../../../core/utils/dateUtils';
 import { UserEvent } from '../../analytics/types/analytics';
 import { getTodayState, buildConsistencyGrid } from '../../program/services/continuitySelectors';
@@ -22,6 +22,7 @@ export const HomeScreen = () => {
   const { state: programState, isLoading: isProgramLoading } = useProgramState();
   const { analytics, events, isLoading: isAnalyticsLoading } = useAnalytics();
   const { profile, isLoading: isProfileLoading } = useUserProfile();
+  const { scrollBottomPadding } = useLayoutTokens();
   
   const handleLogout = async () => { try { await authService.signOut(); } catch (e) { console.error('Logout failed:', e); } };
 
@@ -51,7 +52,7 @@ export const HomeScreen = () => {
   }, [events, analytics.firstSeenDate, profile?.weekly_frequency]);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]} showsVerticalScrollIndicator={false}>
       {/* 👋 Greeting */}
       <GreetingHeader />
 
@@ -97,7 +98,7 @@ export const HomeScreen = () => {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bgPrimary },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: spacing.screenPadding, paddingTop: spacing['3xl'], paddingBottom: SCROLL_BOTTOM_PADDING },
+  content: { padding: spacing.screenPadding, paddingTop: spacing['3xl'] },
   
   heroContent: { alignItems: 'center', paddingVertical: spacing.innerMd },
   heroFlame: { fontSize: 48, marginBottom: spacing.xs },

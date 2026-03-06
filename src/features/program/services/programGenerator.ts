@@ -1,5 +1,6 @@
 import { supabase } from '../../../core/supabase/client';
 import { computeNextWorkout, UserTrainingState, UserWorkoutHistory, WorkoutType } from './adaptiveEntryEngine';
+import { getExercises, PoolExercise, MuscleGroup, EXERCISE_POOL } from '../data/exercisePools';
 
 // ═══════════════════════════════════════════════
 // Types
@@ -174,67 +175,142 @@ export const generateProgram = async (
 // ═══════════════════════════════════════════════
 
 function getTemplateForType(type: WorkoutType, level: string, location: string, goal: string): DayTemplate {
-  const isGym = location.toLowerCase() === 'gym';
   const isFatLoss = goal === 'fat_loss';
-  const sets = level === 'advanced' ? 4 : 3;
+  
+  // Mapping WorkoutTypes to MuscleGroups
+  let primaryMuscleGroups: MuscleGroup[] = [];
+  let secondaryMuscleGroups: MuscleGroup[] = [];
+  let title = '';
+  let focus_type: FocusType = 'strength';
 
   switch (type) {
     case 'push':
-      return day('Push (Chest, Shoulders, Triceps)', 'strength', [
-        { exercise_name: isGym ? 'Dumbbell Bench Press' : 'Push-ups', sets, reps: '12' },
-        { exercise_name: isGym ? 'Overhead Press' : 'Pike Push-ups', sets, reps: '10' },
-        { exercise_name: isGym ? 'Tricep Pushdown' : 'Tricep Dips', sets, reps: '12' },
-        { exercise_name: isGym ? 'Lateral Raise' : 'Arm Circles', sets, reps: '15' },
-      ]);
+      primaryMuscleGroups = ['chest', 'shoulders'];
+      secondaryMuscleGroups = ['arms']; // Triceps fall under arms
+      title = 'Push (Chest, Shoulders, Triceps)';
+      break;
     case 'pull':
-      return day('Pull (Back, Biceps)', 'strength', [
-        { exercise_name: isGym ? 'Lat Pulldown' : 'Inverted Rows (Table)', sets, reps: '12' },
-        { exercise_name: isGym ? 'Barbell Row' : 'Superman Hold', sets, reps: '10' },
-        { exercise_name: isGym ? 'Bicep Curls' : 'Resistance Band Curls', sets, reps: '12' },
-        { exercise_name: isGym ? 'Face Pulls' : 'Band Pull-aparts', sets, reps: '15' },
-      ]);
+      primaryMuscleGroups = ['back'];
+      secondaryMuscleGroups = ['arms']; // Biceps
+      title = 'Pull (Back, Biceps)';
+      break;
     case 'legs':
-      return day('Legs & Core', 'strength', [
-        { exercise_name: isGym ? 'Barbell Squat' : 'Jump Squats', sets, reps: '12' },
-        { exercise_name: isGym ? 'Leg Press' : 'Lunges', sets, reps: '12 each' },
-        { exercise_name: isGym ? 'Romanian Deadlift' : 'Single Leg Glute Bridge', sets, reps: '10' },
-        { exercise_name: 'Calf Raises', sets, reps: '20' },
-      ]);
-    case 'full':
-      return day('Full Body', 'strength', [
-        { exercise_name: isGym ? 'Goblet Squat' : 'Bodyweight Squats', sets, reps: '15' },
-        { exercise_name: isGym ? 'Dumbbell Bench Press' : 'Push-ups', sets, reps: '12' },
-        { exercise_name: isGym ? 'Lat Pulldown' : 'Superman Hold', sets, reps: '12' },
-        { exercise_name: 'Plank', sets: 3, duration: '45s' },
-      ]);
+    case 'lower':
+      primaryMuscleGroups = ['legs'];
+      secondaryMuscleGroups = ['core'];
+      title = type === 'lower' ? 'Lower Body & Core' : 'Legs & Core';
+      break;
+    case 'upper':
     case 'upper_hypertrophy':
-      return day('Upper Body Muscle', 'strength', [
-        { exercise_name: isGym ? 'Incline Dumbbell Press' : 'Decline Push-ups', sets, reps: '10' },
-        { exercise_name: isGym ? 'Seated Cable Row' : 'Resistance Band Row', sets, reps: '12' },
-        { exercise_name: isGym ? 'Dumbbell Flyes' : 'Wide Push-ups', sets, reps: '12' },
-        { exercise_name: 'Hammer Curls', sets, reps: '12' },
-      ]);
+      primaryMuscleGroups = ['chest', 'back', 'shoulders'];
+      secondaryMuscleGroups = ['arms'];
+      title = 'Upper Body Strength';
+      break;
+    case 'full':
+      primaryMuscleGroups = ['chest', 'back', 'legs', 'shoulders'];
+      secondaryMuscleGroups = ['core', 'arms'];
+      title = 'Full Body';
+      break;
     case 'cardio_core':
     case 'cardio':
-      return day(isFatLoss ? 'HIIT Cardio' : 'Steady State Cardio', 'cardio', [
-        { exercise_name: isFatLoss ? (isGym ? 'Treadmill Sprints' : 'Burpees') : (isGym ? 'Elliptical' : 'Jogging'), duration: isFatLoss ? '20 min' : '30 min' },
-        { exercise_name: 'Bicycle Crunches', sets: 3, reps: '20' },
-        { exercise_name: 'Leg Raises', sets: 3, reps: '15' },
-      ]);
+      primaryMuscleGroups = ['core', 'full_body']; // For cardio options
+      title = isFatLoss ? 'HIIT Cardio & Core' : 'Steady State Cardio & Core';
+      focus_type = 'cardio';
+      break;
     case 'mobility':
-      return day('Flexibility & Mobility', 'mobility', [
-        { exercise_name: 'Yoga Flow', duration: '15 min' },
-        { exercise_name: 'Foam Rolling', duration: '10 min' },
-        { exercise_name: 'Deep Stretching', duration: '10 min' },
-      ]);
+      primaryMuscleGroups = ['mobility'];
+      title = 'Flexibility & Mobility';
+      focus_type = 'mobility';
+      break;
     case 'rest':
     case 'none':
     default:
-      return day('Active Recovery', 'rest', [
-        { exercise_name: 'Light Walking', duration: '20 min' },
-        { exercise_name: 'Full Body Stretch', duration: '10 min' },
-      ]);
+      primaryMuscleGroups = ['mobility'];
+      title = 'Active Recovery';
+      focus_type = 'rest';
+      break;
   }
+
+  // Handle Cardio/Mobility/Rest dynamically but simpler
+  if (focus_type !== 'strength') {
+    const warmup = getExercises(primaryMuscleGroups, 'warmup', location, 1)[0] || getExercises(['mobility'] as MuscleGroup[], 'warmup', location, 1)[0];
+    const core1 = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1)[0];
+    const core2 = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 2)[1];
+    const cardio = getExercises(['full_body'] as MuscleGroup[], 'core_cardio', location, 1)[0];
+    
+    const workouts = [];
+    if (warmup) workouts.push(formatEx(warmup, level));
+    if (focus_type === 'cardio') {
+      if (cardio) workouts.push(formatEx(cardio, level));
+      if (core1) workouts.push(formatEx(core1, level));
+      if (core2 && level === 'advanced') workouts.push(formatEx(core2, level));
+    } else {
+      // Mobility/Rest
+      const stretch1 = getExercises(['mobility'] as MuscleGroup[], 'core_cardio', location, 1)[0];
+      const stretch2 = getExercises(['mobility'] as MuscleGroup[], 'core_cardio', location, 2)[1];
+      if (stretch1) workouts.push(formatEx(stretch1, level));
+      if (stretch2) workouts.push(formatEx(stretch2, level));
+    }
+    return day(title, focus_type, workouts);
+  }
+
+  // STRUCTURAL LOGIC FOR STRENGTH (Warmup -> Compound -> Accessory -> Accessory -> Isolation -> Core/Cardio)
+  // Ensure we fallback to 'full_body' group or 'mobility' if specific pulls fail
+  const safePrimary = primaryMuscleGroups.length > 0 ? primaryMuscleGroups : (['full_body'] as MuscleGroup[]);
+  const safeSecondary = secondaryMuscleGroups.length > 0 ? secondaryMuscleGroups : (['core'] as MuscleGroup[]);
+
+  // 1. Warmup
+  const warmupEx = getExercises(safePrimary.concat(['mobility'] as MuscleGroup[]), 'warmup', location, 1)[0] || EXERCISE_POOL.find((e: PoolExercise) => e.category === 'warmup')!;
+  
+  // 2. Compound
+  const compoundEx = getExercises(safePrimary, 'compound', location, 1)[0] || getExercises(['full_body'] as MuscleGroup[], 'compound', location, 1)[0];
+  
+  // 3. Accessory 1
+  const accessoryEx1 = getExercises(safePrimary, 'accessory', location, 1)[0] || getExercises(safePrimary, 'compound', location, 2)[1];
+  
+  // 4. Accessory 2 (From primary or secondary)
+  let accessoryEx2 = getExercises(safeSecondary, 'accessory', location, 1)[0];
+  if (!accessoryEx2 || accessoryEx2.name === accessoryEx1?.name) {
+    accessoryEx2 = getExercises(safePrimary, 'isolation', location, 1)[0];
+  }
+
+  // 5. Isolation
+  let isolationEx = getExercises(safeSecondary, 'isolation', location, 1)[0];
+  if (!isolationEx || isolationEx.name === accessoryEx2?.name) {
+      isolationEx = getExercises(safePrimary, 'isolation', location, 2)[1];
+  }
+
+  // 6. Optional Core
+  const coreEx = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1)[0];
+
+  const generatedWorkouts: WorkoutTemplate[] = [];
+  
+  if (warmupEx) generatedWorkouts.push(formatEx(warmupEx, level));
+  if (compoundEx) generatedWorkouts.push(formatEx(compoundEx, level));
+  if (accessoryEx1) generatedWorkouts.push(formatEx(accessoryEx1, level));
+  if (accessoryEx2) generatedWorkouts.push(formatEx(accessoryEx2, level));
+  if (isolationEx) generatedWorkouts.push(formatEx(isolationEx, level));
+  
+  // Advanced gets extra core at the end
+  if (coreEx && (level === 'advanced' || type === 'full' || type === 'legs' || type === 'lower')) {
+    generatedWorkouts.push(formatEx(coreEx, level));
+  }
+
+  return day(title, focus_type, generatedWorkouts.filter(Boolean));
+}
+
+// Convert PoolExercise to WorkoutTemplate
+function formatEx(ex: PoolExercise, level: string): WorkoutTemplate {
+  let sets = ex.defaultSets;
+  if (level === 'advanced' && sets && sets >= 3) {
+      sets += 1;
+  }
+  return {
+    exercise_name: ex.name,
+    sets: sets,
+    reps: ex.defaultReps,
+    duration: ex.duration,
+  };
 }
 
 // ───── MEALS (shared) ─────

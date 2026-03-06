@@ -4,6 +4,8 @@ export type WorkoutType =
   | 'push'
   | 'pull'
   | 'legs'
+  | 'upper'
+  | 'lower'
   | 'full'
   | 'cardio'
   | 'cardio_core'
@@ -153,28 +155,34 @@ export function computeNextWorkout(
   
   // 4️⃣ NEW USER (NO HISTORY) + STANDARD ROTATION
   if (state.frequency === '0' || state.frequency === '1-2') {
-    // Low frequency rotation
+    // 1-2 days: Full body -> Mobility/Cardio rotation
     if (lastType === 'full') nextType = 'cardio_core';
     else if (lastType === 'cardio_core' || lastType === 'cardio') nextType = 'mobility';
     else if (lastType === 'mobility') nextType = 'full';
     else nextType = 'full'; // default start for low freq
+  } else if (state.frequency === '3-4') {
+    // 3-4 days: Upper / Lower rotation
+    if (lastType === 'upper' || lastType === 'upper_hypertrophy' || lastType === 'push' || lastType === 'pull') nextType = 'lower';
+    else if (lastType === 'lower' || lastType === 'legs') nextType = 'cardio_core';
+    else if (lastType === 'cardio_core' || lastType === 'cardio') nextType = 'upper';
+    else if (lastType === 'rest') nextType = 'upper';
+    else nextType = 'upper';
   } else if (state.frequency === '5+') {
-    // High frequency rotation (skip early mobility, allow push->pull)
+    // 5+ days: High frequency rotation PPL + Upper + Cardio
     if (lastType === 'push') nextType = 'pull';
     else if (lastType === 'pull') nextType = 'legs';
-    else if (lastType === 'legs') nextType = 'upper_hypertrophy';
-    else if (lastType === 'upper_hypertrophy') nextType = 'cardio_core';
+    else if (lastType === 'legs') nextType = 'upper'; // Modified to actual upper
+    else if (lastType === 'upper' || lastType === 'upper_hypertrophy') nextType = 'cardio_core';
     else if (lastType === 'cardio_core' || lastType === 'cardio') nextType = 'push'; // Skip mobility
     else if (lastType === 'mobility') nextType = 'push';
     else if (lastType === 'rest') nextType = 'push';
     else if (lastType === 'none') nextType = 'push';
     else nextType = 'push';
   } else {
-    // Normal 3-4 frequency rotation
+    // Fallback or missed format (translates to 4-5 PPL)
     if (lastType === 'push') nextType = 'pull';
     else if (lastType === 'pull') nextType = 'legs';
-    else if (lastType === 'legs') nextType = 'upper_hypertrophy';
-    else if (lastType === 'upper_hypertrophy') nextType = 'cardio_core';
+    else if (lastType === 'legs') nextType = 'cardio_core';
     else if (lastType === 'cardio_core' || lastType === 'cardio') nextType = 'mobility';
     else if (lastType === 'mobility') nextType = 'push';
     else if (lastType === 'rest') nextType = 'push';
