@@ -129,12 +129,14 @@ export const useAdaptiveDay = () => {
 
     let accessoryCount = 0;
     adaptedWorkouts.forEach(w => {
-      const poolEx = EXERCISE_POOL.find(e => e.name === w.exercise_name);
+      const dbId = (w as any).exercise_id; // Check if DB schema has exercise_id
+      const poolEx = EXERCISE_POOL.find(e => e.name === w.exercise_name || e.id === dbId);
       const cat = poolEx?.category || 'accessory';
       
       (w as any).poolCategory = cat;
       (w as any).poolEquipment = poolEx?.equipment || [];
-      (w as any).poolId = poolEx?.id;
+      // Provide a fallback ID so the exercise details modal can still query the DB!
+      (w as any).poolId = poolEx?.id || dbId || w.exercise_name;
 
       if (cat === 'warmup') {
         sectionsMap['Warmup'].push(w);

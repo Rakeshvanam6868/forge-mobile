@@ -7,6 +7,7 @@ import { useMemo, useCallback } from 'react';
 import { useWorkoutSessionStore, ExerciseLog, SetLog, WorkoutSummary } from '../stores/workoutSessionStore';
 import { useRestTimer } from './useRestTimer';
 import { AdaptedWorkout } from '../../program/services/adaptiveEngine';
+import { useUserProfile } from '../../onboarding/hooks/useUserProfile';
 
 export function useWorkoutSession() {
   const store = useWorkoutSessionStore();
@@ -65,9 +66,14 @@ export function useWorkoutSession() {
     store.completeSet(weight, reps, duration);
   }, [store]);
 
+  const { profile } = useUserProfile();
+
   const finish = useCallback((): WorkoutSummary => {
-    return store.finishWorkout();
-  }, [store]);
+    // Basic weight fallback if profile doesn't have it (assume 70kg as standard)
+    // Adjust this logic if profile schema gains explicit weight property later
+    const weightKg = (profile as any)?.weightKg ?? 70;
+    return store.finishWorkout(weightKg);
+  }, [store, profile]);
 
   return {
     isActive: store.isActive,
@@ -92,6 +98,9 @@ export function useWorkoutSession() {
     finish,
     abandon: store.abandonWorkout,
     clearSession: store.clearSession,
+    pauseSession: store.pauseSession,
+    resumeSession: store.resumeSession,
+    pausedDurationMs: store.pausedDurationMs,
     restTimer,
   };
 }

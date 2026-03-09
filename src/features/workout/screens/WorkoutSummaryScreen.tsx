@@ -7,9 +7,12 @@ import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, StatusBar,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { WorkoutSummary } from '../stores/workoutSessionStore';
-import { useWorkoutSessionStore } from '../stores/workoutSessionStore';
+import { WorkoutSummary, useWorkoutSessionStore } from '../stores/workoutSessionStore';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
+import { useAuth } from '../../auth/hooks/useAuth';
+import { supabase } from '../../../core/supabase/client';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ActivityIndicator } from 'react-native';
 
 const StatBox = ({ emoji, value, label }: { emoji: string; value: string | number; label: string }) => (
   <View style={statStyles.box}>
@@ -36,9 +39,48 @@ export const WorkoutSummaryScreen = () => {
   const clearSession = useWorkoutSessionStore(s => s.clearSession);
   const summary: WorkoutSummary | null = route.params?.summary ?? null;
 
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const saveWorkout = useMutation({
+    mutationFn: async () => {
+      if (!user?.id || !summary) return;
+      
+      const rows: any[] = [];
+      summary.exercises.forEach(ex => {
+        ex.sets.forEach((s, idx) => {
+          if (s.completed) {
+            rows.push({
+              user_id: user.id,
+              workout_id: summary.sessionId,
+              exercise_id: ex.exerciseId,
+              set_number: idx + 1,
+              weight: s.weight,
+              reps: s.reps,
+              duration: s.duration,
+              timestamp: s.timestamp || new Date().toISOString()
+            });
+          }
+        });
+      });
+
+      if (rows.length > 0) {
+        const { error } = await supabase.from('workout_sets').insert(rows);
+        if (error) {
+          console.warn('Failed to insert workout sets:', error);
+        }
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['historical_weight'] });
+      clearSession();
+      navigation.reset({ index: 0, routes: [{ name: 'AppTabs' }] });
+    }
+  });
+
   const handleDone = () => {
-    clearSession();
-    navigation.reset({ index: 0, routes: [{ name: 'AppTabs' }] });
+    if (saveWorkout.isPending) return;
+    saveWorkout.mutate();
   };
 
   if (!summary) {
@@ -86,22 +128,37 @@ export const WorkoutSummaryScreen = () => {
           <Text style={styles.sectionTitle}>Exercise Breakdown</Text>
           {summary.exercises.map((ex, idx) => {
             const completedSets = ex.sets.filter(s => s.completed);
+            
+            // To check if this exercise was skipped, we need to read from the store state.
+            // But since the summary takes a snapshot, we could also pass skippedExercises in the summary payload.
+            // Let's modify the store to include skippedExercises in the WorkoutSummary.
+            // For now, we'll read it straight from the store.
+            const isSkipped = useWorkoutSessionStore.getState().skippedExercises[ex.exerciseId];
+            
             return (
-              <View key={idx} style={styles.exRow}>
+              <View key={idx} style={[styles.exRow, isSkipped && styles.exRowSkipped]}>
                 <View style={styles.exInfo}>
-                  <Text style={styles.exName}>{ex.exerciseName}</Text>
-                  <Text style={styles.exSets}>{completedSets.length}/{ex.targetSets} sets completed</Text>
+                  <Text style={[styles.exName, isSkipped && styles.textSkipped]}>{ex.exerciseName}</Text>
+                  <Text style={[styles.exSets, isSkipped && styles.textSkipped]}>
+                    {isSkipped ? 'Skipped' : `${completedSets.length}/${ex.targetSets} sets completed`}
+                  </Text>
                 </View>
-                <Text style={styles.exBadgeText}>
-                  {completedSets.length === ex.targetSets ? '✅' : `${completedSets.length}/${ex.targetSets}`}
-                </Text>
+                {!isSkipped && (
+                  <Text style={styles.exBadgeText}>
+                    {completedSets.length === ex.targetSets ? '✅' : `${completedSets.length}/${ex.targetSets}`}
+                  </Text>
+                )}
               </View>
             );
           })}
         </View>
 
-        <TouchableOpacity style={styles.doneBtn} onPress={handleDone} activeOpacity={0.7}>
-          <Text style={styles.doneBtnText}>Save & Return Home</Text>
+        <TouchableOpacity style={styles.doneBtn} onPress={handleDone} activeOpacity={0.7} disabled={saveWorkout.isPending}>
+          {saveWorkout.isPending ? (
+            <ActivityIndicator color={palette.white} />
+          ) : (
+            <Text style={styles.doneBtnText}>Save & Return Home</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -126,8 +183,10 @@ const styles = StyleSheet.create({
     backgroundColor: palette.white, borderRadius: radius.sm, padding: 14,
     marginBottom: 8, ...shadows.card,
   },
+  exRowSkipped: { backgroundColor: palette.bgSecondary, opacity: 0.7 },
   exInfo: { flex: 1 },
   exName: { ...fonts.cardTitle, color: palette.textPrimary, marginBottom: 2 },
+  textSkipped: { color: palette.textMuted },
   exSets: { ...fonts.caption, color: palette.textSecondary },
   exBadgeText: { fontSize: 18, paddingLeft: 12 },
   doneBtn: { backgroundColor: palette.primary, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', ...shadows.button },

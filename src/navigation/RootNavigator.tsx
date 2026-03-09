@@ -14,7 +14,6 @@ import { WeekScreen } from '../features/program/screens/WeekScreen';
 import { HomeScreen } from '../features/home/screens/HomeScreen';
 import { AnalyticsScreen } from '../features/analytics/screens/AnalyticsScreen';
 import { useRetention } from '../features/retention/hooks/useRetention';
-import { seedExerciseDetails } from '../features/program/services/exerciseDetailsRepository';
 import { WorkoutModeScreen } from '../features/workout/screens/WorkoutModeScreen';
 import { WorkoutSummaryScreen } from '../features/workout/screens/WorkoutSummaryScreen';
 import { palette, fonts, spacing, radius, shadows } from '../core/theme/designTokens';
@@ -107,13 +106,6 @@ export const RootNavigator = () => {
   const { session, loading: authLoading } = useAuth();
   const { profile, isLoading: profileLoading } = useUserProfile();
   const isAppReady = !authLoading && (!session || !profileLoading);
-
-  React.useEffect(() => {
-    // Only run seeder when auth session is fully ready to prevent RLS blocks
-    if (session) {
-      seedExerciseDetails().catch(() => {});
-    }
-  }, [session]);
 
   if (!isAppReady) {
     return <View style={styles.loadScreen}><ActivityIndicator size="large" color={palette.primary} /></View>;

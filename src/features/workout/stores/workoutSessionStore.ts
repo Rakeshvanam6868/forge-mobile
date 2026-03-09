@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AdaptedWorkout } from '../../program/services/adaptiveEngine';
-import { REST_TIMES, DEFAULT_REST_SECONDS, MIN_SETS, DEFAULT_MIN_SETS, CALORIE_PER_MINUTE, DEFAULT_CALORIE_PER_MINUTE, inferCategory } from '../utils/workoutConstants';
+import { REST_TIMES, DEFAULT_REST_SECONDS, MIN_SETS, DEFAULT_MIN_SETS, MET_STRENGTH, inferCategory } from '../utils/workoutConstants';
 
 // ═══════════════════════════════════════════════
 // Data Models
@@ -59,9 +59,14 @@ type WorkoutSessionState = {
   currentExerciseIndex: number;
   currentSetIndex: number;
   exercises: ExerciseLog[];
+  skippedExercises: Record<string, boolean>;
   restTimerActive: boolean;
   restTimerEndTime: string | null;
   restTimerTotal: number;
+
+  pausedDurationMs: number;
+  lastActiveTimestamp: string | null;
+  isPaused: boolean;
 
   startSession: (workouts: AdaptedWorkout[]) => void;
   completeSet: (weight: number | null, reps: number | null, duration: number | null) => void;
@@ -70,9 +75,13 @@ type WorkoutSessionState = {
   previousExercise: () => void;
   startRestTimer: (seconds?: number) => void;
   skipRest: () => void;
-  finishWorkout: () => WorkoutSummary;
+  skipExercise: () => void;
+  finishWorkout: (userWeightKg?: number) => WorkoutSummary;
   abandonWorkout: () => void;
+  cancelWorkout: () => void;
   clearSession: () => void;
+  pauseSession: () => void;
+  resumeSession: () => void;
 };
 
 // ═══════════════════════════════════════════════
@@ -99,7 +108,7 @@ function buildExerciseLog(w: AdaptedWorkout): ExerciseLog {
   }));
 
   return {
-    exerciseId: w.id || w.exercise_name,
+    exerciseId: (w as any).poolId || w.id || w.exercise_name,
     exerciseName: w.exercise_name,
     category,
     targetSets: sets,
@@ -123,9 +132,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
       currentExerciseIndex: 0,
       currentSetIndex: 0,
       exercises: [],
+      skippedExercises: {},
       restTimerActive: false,
       restTimerEndTime: null,
       restTimerTotal: 0,
+      pausedDurationMs: 0,
+      lastActiveTimestamp: null,
+      isPaused: false,
 
       startSession: (workouts: AdaptedWorkout[]) => {
         const state = get();
@@ -142,9 +155,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
           currentExerciseIndex: 0,
           currentSetIndex: 0,
           exercises,
+          skippedExercises: {},
           restTimerActive: false,
           restTimerEndTime: null,
           restTimerTotal: 0,
+          pausedDurationMs: 0,
+          lastActiveTimestamp: new Date().toISOString(),
+          isPaused: false,
         });
       },
 
@@ -242,11 +259,41 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
         set({ restTimerActive: false, restTimerEndTime: null });
       },
 
-      finishWorkout: () => {
+      skipExercise: () => {
         const state = get();
+        if (!state.isActive) return;
+        const currentEx = state.exercises[state.currentExerciseIndex];
+        if (!currentEx) return;
+
+        const updatedSkipped = { ...state.skippedExercises, [currentEx.exerciseId]: true };
+        const isLastExercise = state.currentExerciseIndex >= state.exercises.length - 1;
+
+        if (isLastExercise) {
+          // If skipping the last exercise, just update skipped list (UI will handle finishing if needed)
+          set({ skippedExercises: updatedSkipped });
+        } else {
+          set({
+            skippedExercises: updatedSkipped,
+            currentExerciseIndex: state.currentExerciseIndex + 1,
+            currentSetIndex: 0,
+            restTimerActive: false,
+            restTimerEndTime: null,
+          });
+        }
+      },
+
+      finishWorkout: (userWeightKg = 70) => {
+        const state = get();
+        // If we were paused, effectively "resume" right before finishing to log full pause time
+        if (state.isPaused && state.lastActiveTimestamp) {
+          get().resumeSession();
+        }
+
         const endTime = new Date().toISOString();
         const startMs = state.startTime ? new Date(state.startTime).getTime() : Date.now();
-        const durationMinutes = Math.round((Date.now() - startMs) / 60000);
+        // Recalculate duration incorporating pause times
+        const effectiveDurationMs = Math.max(0, (Date.now() - startMs) - get().pausedDurationMs);
+        const durationMinutes = Math.round(effectiveDurationMs / 60000);
 
         let setsCompleted = 0;
         let totalVolume = 0;
@@ -261,24 +308,9 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
           });
         });
 
-        // Category-aware calorie estimation
-        let estimatedCalories = 0;
-        state.exercises.forEach(ex => {
-          const completedSets = ex.sets.filter(s => s.completed);
-          if (completedSets.length > 0) {
-            const calPerMin = CALORIE_PER_MINUTE[ex.category] ?? DEFAULT_CALORIE_PER_MINUTE;
-            // Estimate ~1.5 min per set for strength, ~2 min for cardio
-            const minsPerSet = (ex.category === 'cardio' || ex.category === 'core_cardio') ? 2 : 1.5;
-            estimatedCalories += Math.round(completedSets.length * minsPerSet * calPerMin);
-          }
-        });
-        // Add rest time calories (~2 cal/min during rest)
-        const restMinutes = Math.max(0, durationMinutes - state.exercises.reduce((acc, ex) => {
-          const completedSets = ex.sets.filter(s => s.completed).length;
-          const minsPerSet = (ex.category === 'cardio' || ex.category === 'core_cardio') ? 2 : 1.5;
-          return acc + completedSets * minsPerSet;
-        }, 0));
-        estimatedCalories += Math.round(restMinutes * 2);
+        // CALORIE ESTIMATION
+        // User Requested Formula: volume = weight * reps * sets, calories = volume * 0.1
+        let estimatedCalories = Math.round(totalVolume * 0.1);
 
         const summary: WorkoutSummary = {
           sessionId: state.sessionId || generateId(),
@@ -293,24 +325,52 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
           exercises: state.exercises,
         };
 
-        set({ isActive: false, endTime, restTimerActive: false, restTimerEndTime: null });
+        set({ sessionId: null, isActive: false, endTime, restTimerActive: false, restTimerEndTime: null });
         return summary;
       },
 
       abandonWorkout: () => {
         set({
           sessionId: null, isActive: false, startTime: null, endTime: null,
-          currentExerciseIndex: 0, currentSetIndex: 0, exercises: [],
+          currentExerciseIndex: 0, currentSetIndex: 0, exercises: [], skippedExercises: {},
           restTimerActive: false, restTimerEndTime: null, restTimerTotal: 0,
+          pausedDurationMs: 0, lastActiveTimestamp: null, isPaused: false,
         });
+      },
+
+      cancelWorkout: () => {
+        get().abandonWorkout();
       },
 
       clearSession: () => {
         set({
           sessionId: null, isActive: false, startTime: null, endTime: null,
-          currentExerciseIndex: 0, currentSetIndex: 0, exercises: [],
+          currentExerciseIndex: 0, currentSetIndex: 0, exercises: [], skippedExercises: {},
           restTimerActive: false, restTimerEndTime: null, restTimerTotal: 0,
+          pausedDurationMs: 0, lastActiveTimestamp: null, isPaused: false,
         });
+      },
+
+      pauseSession: () => {
+        const { isActive, isPaused } = get();
+        if (isActive && !isPaused) {
+          set({
+            isPaused: true,
+            lastActiveTimestamp: new Date().toISOString()
+          });
+        }
+      },
+
+      resumeSession: () => {
+        const { isActive, isPaused, lastActiveTimestamp, pausedDurationMs } = get();
+        if (isActive && isPaused && lastActiveTimestamp) {
+          const pauseDuration = Date.now() - new Date(lastActiveTimestamp).getTime();
+          set({
+            isPaused: false,
+            pausedDurationMs: pausedDurationMs + Math.max(0, pauseDuration),
+            lastActiveTimestamp: new Date().toISOString()
+          });
+        }
       },
     }),
     {
@@ -324,9 +384,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
         currentExerciseIndex: state.currentExerciseIndex,
         currentSetIndex: state.currentSetIndex,
         exercises: state.exercises,
+        skippedExercises: state.skippedExercises,
         restTimerEndTime: state.restTimerEndTime,
         restTimerTotal: state.restTimerTotal,
         restTimerActive: state.restTimerActive,
+        pausedDurationMs: state.pausedDurationMs,
+        lastActiveTimestamp: state.lastActiveTimestamp,
+        isPaused: state.isPaused,
       }),
     }
   )

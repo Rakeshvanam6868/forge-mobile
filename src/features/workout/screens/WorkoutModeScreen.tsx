@@ -15,10 +15,16 @@ import {
   ScrollView, Alert, SafeAreaView, StatusBar, Animated, Modal, Pressable,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../auth/hooks/useAuth';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { useExerciseDetail } from '../../program/hooks/useExerciseDetail';
 import { AdaptedWorkout } from '../../program/services/adaptiveEngine';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
+import { useWorkoutSessionStore } from '../stores/workoutSessionStore';
+import { AppState, AppStateStatus } from 'react-native';
+import { supabase } from '../../../core/supabase/client';
 
 // ═══════════════════════════════════════════════
 // Sub-Components
@@ -113,6 +119,12 @@ const RestTimerOverlay = ({ display, onSkip, nextExercise }: {
     pulse.start();
     return () => pulse.stop();
   }, [pulseAnim]);
+
+  // Haptic when timer hits 0 is handled wherever timer state is checked,
+  // but let's just do a simple mount haptic here as well
+  useEffect(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, []);
 
   return (
     <View style={restStyles.overlay}>
@@ -315,10 +327,17 @@ export const WorkoutModeScreen = () => {
     isCurrentExerciseComplete, isLastExercise, isWorkoutComplete,
     completeCurrentSet, nextExercise, finish, abandon, restTimer,
     exercises, editSet, nextExercisePreview,
+    pauseSession, resumeSession, pausedDurationMs
   } = useWorkoutSession();
 
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  // Need store direct actions for skip / cancel that aren't in the hook
+  const { skipExercise, cancelWorkout } = useWorkoutSessionStore();
+
   // Input state
-  const [weightInput, setWeightInput] = useState('');
+  const [exerciseWeights, setExerciseWeights] = useState<Record<string, string>>({});
   const [repsInput, setRepsInput] = useState('');
   const [durationInput, setDurationInput] = useState('');
   const [elapsed, setElapsed] = useState('00:00');
@@ -330,15 +349,47 @@ export const WorkoutModeScreen = () => {
   const [editReps, setEditReps] = useState('');
   const [editDuration, setEditDuration] = useState('');
 
+  // UI Debounce
+  const [isCompleting, setIsCompleting] = useState(false);
+
   // Exercise Guide modal
   const [guideVisible, setGuideVisible] = useState(false);
+
+  // Historical Weight Fetching from workout_sets
+  const { data: previousWeight } = useQuery({
+    queryKey: ['historical_weight', user?.id, currentExercise?.exerciseId],
+    queryFn: async () => {
+      if (!user?.id || !currentExercise?.exerciseId) return null;
+      const { data } = await supabase
+        .from('workout_sets')
+        .select('weight')
+        .eq('user_id', user.id)
+        .eq('exercise_id', currentExercise.exerciseId)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return (data?.weight !== undefined && data?.weight !== null) ? data.weight : null;
+    },
+    enabled: !!user?.id && !!currentExercise?.exerciseId,
+  });
 
   // Initialize session from route params
   useEffect(() => {
     if (!isActive && route.params?.workouts) {
       start(route.params.workouts as AdaptedWorkout[]);
+      navigation.setParams({ workouts: undefined });
     }
-  }, []);
+  }, [isActive, route.params?.workouts]);
+
+  // AppState listener for pausing
+  useEffect(() => {
+    const handleAppState = (state: AppStateStatus) => {
+      if (state === 'active') resumeSession();
+      else if (state === 'background') pauseSession();
+    };
+    const sub = AppState.addEventListener('change', handleAppState);
+    return () => sub.remove();
+  }, [pauseSession, resumeSession]);
 
   // Restore start time ref
   useEffect(() => {
@@ -353,19 +404,19 @@ export const WorkoutModeScreen = () => {
     if (!isActive) return;
     const interval = setInterval(() => {
       if (startTimeRef.current) {
-        const ms = Date.now() - startTimeRef.current;
+        const ms = Math.max(0, Date.now() - startTimeRef.current - pausedDurationMs);
         const mins = Math.floor(ms / 60000);
         const secs = Math.floor((ms % 60000) / 1000);
         setElapsed(`${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`);
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [isActive]);
+  }, [isActive, pausedDurationMs]);
 
   // Pre-fill reps/duration from target when exercise changes
   useEffect(() => {
     if (currentExercise) {
-      setWeightInput('');
+      const exId = currentExercise.exerciseId;
       setEditingSetIndex(null);
       if (currentExercise.targetReps) {
         const num = currentExercise.targetReps.match(/\d+/)?.[0] || '';
@@ -379,20 +430,48 @@ export const WorkoutModeScreen = () => {
       } else {
         setDurationInput('');
       }
+
+      // Feature 1: Auto-prefill weight logic based on ISOLATED state
+      const lastCompletedSet = currentExercise.sets.slice().reverse().find(s => s.completed);
+      let newWeightVal = exerciseWeights[exId] || '';
+
+      if (lastCompletedSet) {
+        if (lastCompletedSet.weight === null) {
+          newWeightVal = '';
+        } else {
+          newWeightVal = String(lastCompletedSet.weight);
+        }
+      } else if (!exerciseWeights[exId]) {
+        // First set of this exercise -> check historical DB weight
+        if (previousWeight !== null && previousWeight !== undefined) {
+          newWeightVal = String(previousWeight);
+        }
+      }
+
+      setExerciseWeights(prev => ({ ...prev, [exId]: newWeightVal }));
     }
-  }, [currentExerciseIndex, currentExercise]);
+  }, [currentExerciseIndex, currentExercise, previousWeight]);
 
   // ─── Handlers ────────────────────────────────
   const handleCompleteSet = useCallback(() => {
-    const weight = weightInput ? parseFloat(weightInput) : null;
+    if (isCompleting || !currentExercise) return;
+
+    const currentWeightStr = exerciseWeights[currentExercise.exerciseId] || '';
+    const weight = currentWeightStr ? parseFloat(currentWeightStr) : null;
     const reps = repsInput ? parseInt(repsInput, 10) : null;
     const duration = durationInput ? parseInt(durationInput, 10) : null;
     if (!reps && !duration) {
       Alert.alert('Missing Input', 'Please enter reps or duration before completing the set.');
       return;
     }
+    
+    setIsCompleting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     completeCurrentSet(weight, reps, duration);
-  }, [weightInput, repsInput, durationInput, completeCurrentSet]);
+    
+    // Release debounce after transition
+    setTimeout(() => setIsCompleting(false), 500);
+  }, [exerciseWeights, currentExercise, repsInput, durationInput, completeCurrentSet, isCompleting]);
 
   const handleEditSet = useCallback((setIndex: number) => {
     if (!currentExercise) return;
@@ -415,17 +494,32 @@ export const WorkoutModeScreen = () => {
   }, [editingSetIndex, editWeight, editReps, editDuration, editSet, currentExerciseIndex]);
 
   const handleFinish = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const summary = finish();
     navigation.replace('WorkoutSummary', { summary });
   }, [finish, navigation]);
 
   const handleExit = useCallback(() => {
-    Alert.alert('End Workout?', 'Your progress will be saved.', [
+    Alert.alert('Cancel Workout?', 'Progress will be lost.', [
       { text: 'Continue Workout', style: 'cancel' },
-      { text: 'End & Save', style: 'destructive', onPress: () => { const summary = finish(); navigation.replace('WorkoutSummary', { summary }); } },
-      { text: 'Discard', style: 'destructive', onPress: () => { abandon(); navigation.goBack(); } },
+      { text: 'Cancel Session', style: 'destructive', onPress: () => { 
+        cancelWorkout(); 
+        navigation.navigate('MainTabs', { screen: 'Today' }); 
+      } },
     ]);
-  }, [finish, abandon, navigation]);
+  }, [cancelWorkout, navigation]);
+
+  const handleSkipExercise = useCallback(() => {
+    Alert.alert('Skip Exercise?', 'This exercise will be marked as skipped.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Skip', style: 'destructive', onPress: () => {
+        skipExercise();
+        if (isLastExercise) {
+          handleFinish();
+        }
+      } },
+    ]);
+  }, [skipExercise, isLastExercise, handleFinish]);
 
   // ─── Guard ───────────────────────────────────
   if (!isActive || !currentExercise) {
@@ -464,11 +558,11 @@ export const WorkoutModeScreen = () => {
 
       {/* Header */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={handleExit} hitSlop={12}>
-          <Text style={styles.exitBtn}>✕</Text>
+        <TouchableOpacity onPress={handleExit} hitSlop={12} style={styles.exitWrap}>
+          <Text style={styles.exitBtn}>← Exit</Text>
         </TouchableOpacity>
         <Text style={styles.elapsed}>⏱ {elapsed}</Text>
-        <View style={{ width: 32 }} />
+        <View style={{ width: 60 }} />
       </View>
 
       {/* Progress Bar */}
@@ -551,7 +645,9 @@ export const WorkoutModeScreen = () => {
                     <View style={styles.inputRow}>
                       <View style={styles.inputGroup}>
                         <Text style={styles.inputLabel}>Weight (lbs)</Text>
-                        <TextInput style={styles.input} value={weightInput} onChangeText={setWeightInput}
+                        <TextInput style={styles.input}
+                          value={exerciseWeights[currentExercise.exerciseId] || ''}
+                          onChangeText={(val) => setExerciseWeights(p => ({ ...p, [currentExercise.exerciseId]: val }))}
                           keyboardType="numeric" placeholder="optional" placeholderTextColor={palette.textMuted} />
                       </View>
                       {isDurationBased ? (
@@ -585,6 +681,13 @@ export const WorkoutModeScreen = () => {
               <Text style={styles.nextBtnText}>Next Exercise →</Text>
             </TouchableOpacity>
           )}
+          
+          {!isCurrentExerciseComplete && (
+            <TouchableOpacity style={styles.skipExBtn} onPress={handleSkipExercise} activeOpacity={0.7}>
+              <Text style={styles.skipExBtnText}>Skip Exercise</Text>
+            </TouchableOpacity>
+          )}
+
           {(isWorkoutComplete || (isCurrentExerciseComplete && isLastExercise)) && (
             <TouchableOpacity style={styles.finishBtn} onPress={handleFinish} activeOpacity={0.7}>
               <Text style={styles.finishBtnText}>🎉 Finish Workout</Text>
@@ -610,7 +713,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: spacing.screenPadding, paddingTop: spacing.md, paddingBottom: spacing.sm,
   },
-  exitBtn: { fontSize: 22, color: palette.textMuted, padding: 4 },
+  exitWrap: { minWidth: 60 },
+  exitBtn: { ...fonts.body, color: palette.danger, fontWeight: '600' },
   elapsed: { ...fonts.tabular, color: palette.textSecondary },
   scrollArea: { flex: 1 },
   scrollContent: { paddingBottom: 100 },
@@ -654,4 +758,6 @@ const styles = StyleSheet.create({
   nextBtnText: { ...fonts.button, color: palette.white },
   finishBtn: { backgroundColor: palette.success, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', ...shadows.button },
   finishBtnText: { ...fonts.button, color: palette.white },
+  skipExBtn: { backgroundColor: palette.bgSecondary, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
+  skipExBtnText: { ...fonts.button, color: palette.textSecondary },
 });

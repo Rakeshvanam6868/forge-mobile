@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useWorkoutSessionStore } from '../stores/workoutSessionStore';
 
 export function useRestTimer() {
@@ -28,7 +29,10 @@ export function useRestTimer() {
     intervalRef.current = setInterval(() => {
       const remaining = computeRemaining();
       setSecondsRemaining(remaining);
-      if (remaining <= 0) skipRest();
+      if (remaining <= 0) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); // Double pulse
+        skipRest();
+      }
     }, 1000);
     return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
   }, [restTimerActive, restTimerEndTime, computeRemaining, skipRest]);
@@ -38,7 +42,10 @@ export function useRestTimer() {
       if (state === 'active' && restTimerActive) {
         const remaining = computeRemaining();
         setSecondsRemaining(remaining);
-        if (remaining <= 0) skipRest();
+        if (remaining <= 0) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); // Double pulse
+          skipRest();
+        }
       }
     };
     const subscription = AppState.addEventListener('change', handleAppState);

@@ -6,14 +6,14 @@
 // Default rest durations per exercise category (seconds)
 export const REST_TIMES: Record<string, number> = {
   compound: 90,
-  accessory: 75,
-  isolation: 60,
-  warmup: 30,
+  accessory: 60,
+  isolation: 50,
+  warmup: 25,
   core_cardio: 45,
   core: 45,
   cardio: 45,
   finisher: 45,
-  primary: 75,
+  primary: 90,
 };
 
 export const DEFAULT_REST_SECONDS = 60;
@@ -47,6 +47,10 @@ export const CALORIE_PER_MINUTE: Record<string, number> = {
 };
 
 export const DEFAULT_CALORIE_PER_MINUTE = 6;
+
+// Metabolic Equivalent of Task for general strength training
+export const MET_STRENGTH = 6;
+
 
 /**
  * Infer a category from exercise name heuristics when no explicit category exists.
