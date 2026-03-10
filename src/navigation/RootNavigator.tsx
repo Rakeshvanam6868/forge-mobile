@@ -13,6 +13,7 @@ import { TodayScreen } from '../features/program/screens/TodayScreen';
 import { WeekScreen } from '../features/program/screens/WeekScreen';
 import { HomeScreen } from '../features/home/screens/HomeScreen';
 import { AnalyticsScreen } from '../features/analytics/screens/AnalyticsScreen';
+import { ProgressScreen } from '../features/progress/screens/ProgressScreen';
 import { useRetention } from '../features/retention/hooks/useRetention';
 import { WorkoutModeScreen } from '../features/workout/screens/WorkoutModeScreen';
 import { WorkoutSummaryScreen } from '../features/workout/screens/WorkoutSummaryScreen';
@@ -33,7 +34,7 @@ const AuthNavigator = () => (
 const TAB_ITEMS = [
   { name: 'Today', icon: '🏋️', component: TodayScreen },
   { name: 'Week', icon: '📅', component: WeekScreen },
-  { name: 'Progress', icon: '📊', component: HomeScreen },
+  { name: 'Progress', icon: '📊', component: ProgressScreen },
   { name: 'Analytics', icon: '🎯', component: AnalyticsScreen },
 ];
 

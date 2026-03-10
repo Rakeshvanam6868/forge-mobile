@@ -11,6 +11,7 @@ type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
 type WorkoutTemplate = {
   exercise_name: string;
+  exercise_id?: string;
   sets?: number;
   reps?: string;
   duration?: string;
@@ -135,6 +136,7 @@ export const generateProgram = async (
         
         const workoutRows = template.workouts.map((w, i) => ({
           program_day_id: day.id,
+          exercise_id: w.exercise_id,
           exercise_name: w.exercise_name,
           sets: w.sets ? Math.max(1, Math.round(w.sets * mult)) : null,
           reps: w.reps ?? null,
@@ -306,6 +308,7 @@ function formatEx(ex: PoolExercise, level: string): WorkoutTemplate {
       sets += 1;
   }
   return {
+    exercise_id: ex.id,
     exercise_name: ex.name,
     sets: sets,
     reps: ex.defaultReps,

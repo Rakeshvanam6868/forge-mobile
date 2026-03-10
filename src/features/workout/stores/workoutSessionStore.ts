@@ -76,6 +76,7 @@ type WorkoutSessionState = {
   startRestTimer: (seconds?: number) => void;
   skipRest: () => void;
   skipExercise: () => void;
+  replaceExercise: (exerciseIndex: number, newExercise: { id: string; name: string; category?: string }) => void;
   finishWorkout: (userWeightKg?: number) => WorkoutSummary;
   abandonWorkout: () => void;
   cancelWorkout: () => void;
@@ -108,7 +109,7 @@ function buildExerciseLog(w: AdaptedWorkout): ExerciseLog {
   }));
 
   return {
-    exerciseId: (w as any).poolId || w.id || w.exercise_name,
+    exerciseId: w.exercise_id || (w as any).poolId || w.exercise_name,
     exerciseName: w.exercise_name,
     category,
     targetSets: sets,
@@ -269,7 +270,6 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
         const isLastExercise = state.currentExerciseIndex >= state.exercises.length - 1;
 
         if (isLastExercise) {
-          // If skipping the last exercise, just update skipped list (UI will handle finishing if needed)
           set({ skippedExercises: updatedSkipped });
         } else {
           set({
@@ -280,6 +280,36 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
             restTimerEndTime: null,
           });
         }
+      },
+
+      replaceExercise: (exerciseIndex, newExercise) => {
+        const state = get();
+        if (!state.isActive) return;
+        const exercises = [...state.exercises];
+        const oldExercise = exercises[exerciseIndex];
+        if (!oldExercise) return;
+
+        const newCategory = newExercise.category || inferCategory(newExercise.name);
+
+        // Preserve completed sets, reset incomplete ones
+        const updatedSets = oldExercise.sets.map(s =>
+          s.completed ? s : { ...s, weight: null, reps: null, duration: null, completed: false, timestamp: null }
+        );
+
+        exercises[exerciseIndex] = {
+          ...oldExercise,
+          exerciseId: newExercise.id,
+          exerciseName: newExercise.name,
+          category: newCategory,
+          sets: updatedSets,
+        };
+
+        // Reset current set index to first incomplete set
+        const firstIncomplete = updatedSets.findIndex(s => !s.completed);
+        set({
+          exercises,
+          currentSetIndex: firstIncomplete >= 0 ? firstIncomplete : 0,
+        });
       },
 
       finishWorkout: (userWeightKg = 70) => {
@@ -309,8 +339,9 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
         });
 
         // CALORIE ESTIMATION
-        // User Requested Formula: volume = weight * reps * sets, calories = volume * 0.1
-        let estimatedCalories = Math.round(totalVolume * 0.1);
+        // User Requested Formula: volume = weight * reps * sets, calories =(volume * 0.04) + (duration_minutes * 4)
+        // totalVolume here already represents the sum over all sets of (weight * reps)
+        let estimatedCalories = Math.round((totalVolume * 0.04) + (durationMinutes * 4));
 
         const summary: WorkoutSummary = {
           sessionId: state.sessionId || generateId(),

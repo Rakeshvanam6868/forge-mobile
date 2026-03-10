@@ -4,6 +4,7 @@ import { supabase } from '../../../core/supabase/client';
 export type Workout = {
   id: string;
   program_day_id: string;
+  exercise_id: string;
   exercise_name: string;
   sets: number | null;
   reps: string | null;

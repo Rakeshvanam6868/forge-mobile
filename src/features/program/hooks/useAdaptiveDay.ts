@@ -17,6 +17,9 @@ import {
 } from '../services/exerciseHistoryQueries';
 import { WorkoutType } from '../services/adaptiveEntryEngine';
 import { EXERCISE_POOL } from '../data/exercisePools';
+import { useAnalytics } from '../../analytics/hooks/useAnalytics';
+import { buildConsistencyGrid } from '../services/continuitySelectors';
+import { toDateString } from '../../../core/utils/dateUtils';
 
 export type AdaptiveDayState = {
   // Base data
@@ -53,6 +56,7 @@ export const useAdaptiveDay = () => {
   const { profile } = useUserProfile();
   const { data: program, isLoading: progLoading } = useCurrentProgram();
   const { state: programState, isLoading: stateLoading, isError: programStateError, completeToday } = useProgramState();
+  const { analytics, events } = useAnalytics();
 
   // 1. Identify Target from Engine
   const targetSession = programState?.nextSession;
@@ -81,17 +85,30 @@ export const useAdaptiveDay = () => {
   const adaptiveState = useMemo<AdaptiveDayState | null>(() => {
     if (!programState || !dayDetail || !targetSession || !profile) return null;
 
-    // We assume analytics streak is handled separately, but we still feed it into legacy engine rules 
-    // for volume limits. We will default to a streak of 1 for now if not fetching full analytics.
+    // Compute real streak from analytics events
+    let realStreak = 0;
+    let realMissedYesterday = false;
+    if (analytics && events) {
+      const start = analytics.firstSeenDate || toDateString(new Date());
+      const today = toDateString(new Date());
+      const { currentStreak, grid } = buildConsistencyGrid(start, today, profile?.weekly_frequency, events);
+      realStreak = currentStreak;
+      // Check if yesterday was a missed training day
+      if (grid.length >= 2) {
+        const yesterdayCell = grid[grid.length - 2];
+        realMissedYesterday = yesterdayCell?.state === 'MISSED';
+      }
+    }
+
     const plan = computeAdaptivePlan({
       focusType: dayDetail.focusType,
       baseWorkouts: dayDetail.workouts,
       baseMeals: dayDetail.meals,
-      streak: 1, // Mocked until Analytics Integration
+      streak: realStreak,
       energyTrend: energyTrend ?? [],
       exerciseHistory: exerciseHistory ?? [],
       goal: profile.goal ?? 'General Fitness',
-      missedYesterday: false, // Mocked
+      missedYesterday: realMissedYesterday,
     });
 
     // Merge nextTarget's enforced volume limits from ProgramState Payload
@@ -160,7 +177,7 @@ export const useAdaptiveDay = () => {
       .filter(key => sectionsMap[key].length > 0)
       .map(key => ({ title: key, data: sectionsMap[key] }));
 
-    console.log('[DEBUG] Generated workout:', sections);
+
 
     return {
       dayDetail,
@@ -177,7 +194,7 @@ export const useAdaptiveDay = () => {
       nextTrainingDateString: programState.nextTrainingDateString,
       lastCompletedSession: programState.lastCompletedSession,
     };
-  }, [programState, dayDetail, exerciseHistory, energyTrend, profile, targetSession]);
+  }, [programState, dayDetail, exerciseHistory, energyTrend, profile, targetSession, analytics, events]);
 
   return {
     adaptiveState,

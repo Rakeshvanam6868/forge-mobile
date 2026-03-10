@@ -18,6 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { useUserProfile } from '../../onboarding/hooks/useUserProfile';
 import { useWorkoutSession } from '../hooks/useWorkoutSession';
 import { useExerciseDetail } from '../../program/hooks/useExerciseDetail';
 import { AdaptedWorkout } from '../../program/services/adaptiveEngine';
@@ -25,6 +26,7 @@ import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/de
 import { useWorkoutSessionStore } from '../stores/workoutSessionStore';
 import { AppState, AppStateStatus } from 'react-native';
 import { supabase } from '../../../core/supabase/client';
+import { EXERCISE_POOL, PoolExercise } from '../../program/data/exercisePools';
 
 // ═══════════════════════════════════════════════
 // Sub-Components
@@ -51,7 +53,7 @@ const WorkoutProgressBar = ({ progress, current, total }: { progress: number; cu
       <View style={progressStyles.barBg}>
         <Animated.View style={[progressStyles.barFill, { width: animWidth }]} />
       </View>
-      <Text style={progressStyles.label}>Exercise {current + 1} of {total}</Text>
+      <Text style={progressStyles.label}>Exercise {current + 1} of {total} - {Math.round(progress * 100)}%</Text>
     </View>
   );
 };
@@ -145,7 +147,10 @@ const RestTimerOverlay = ({ display, onSkip, nextExercise }: {
         </View>
       )}
 
-      <TouchableOpacity style={restStyles.skipBtn} onPress={onSkip} activeOpacity={0.7}>
+      <TouchableOpacity style={restStyles.skipBtn} onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onSkip();
+      }} activeOpacity={0.7}>
         <Text style={restStyles.skipText}>Skip Rest →</Text>
       </TouchableOpacity>
     </View>
@@ -314,6 +319,86 @@ const guideStyles = StyleSheet.create({
   noDataSub: { ...fonts.caption, color: palette.textMuted, textAlign: 'center' },
 });
 
+// ─── Exercise Replacement Modal ────────────────
+const ExerciseReplacementModal = ({ visible, onClose, currentExerciseName, onSelect }: {
+  visible: boolean; onClose: () => void; currentExerciseName: string;
+  onSelect: (exercise: PoolExercise) => void;
+}) => {
+  // Find muscle groups of current exercise
+  const currentPool = EXERCISE_POOL.find(e => e.name === currentExerciseName);
+  const muscleGroups = currentPool?.muscleGroup || [];
+
+  const alternatives = EXERCISE_POOL.filter(e =>
+    e.name !== currentExerciseName &&
+    e.category !== 'warmup' &&
+    e.muscleGroup.some(mg => muscleGroups.includes(mg))
+  );
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <Pressable style={replaceStyles.overlay} onPress={onClose}>
+        <Pressable style={replaceStyles.sheet} onPress={() => {}}>
+          <View style={replaceStyles.handle} />
+          <View style={replaceStyles.header}>
+            <Text style={replaceStyles.title}>Replace Exercise</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={12}>
+              <Text style={replaceStyles.closeBtn}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={replaceStyles.subtitle}>
+            Same muscle group as {currentExerciseName}
+          </Text>
+          <ScrollView showsVerticalScrollIndicator={false} style={replaceStyles.scroll}>
+            {alternatives.map(ex => (
+              <TouchableOpacity
+                key={ex.id}
+                style={replaceStyles.exRow}
+                onPress={() => { onSelect(ex); onClose(); }}
+                activeOpacity={0.7}
+              >
+                <View style={replaceStyles.exInfo}>
+                  <Text style={replaceStyles.exName}>{ex.name}</Text>
+                  <Text style={replaceStyles.exMeta}>
+                    {ex.category.toUpperCase()} · {ex.equipment.join(', ')}
+                  </Text>
+                </View>
+                <Text style={replaceStyles.exArrow}>→</Text>
+              </TouchableOpacity>
+            ))}
+            {alternatives.length === 0 && (
+              <Text style={replaceStyles.noAlt}>No alternatives available for this muscle group.</Text>
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+};
+
+const replaceStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: palette.bgPrimary, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card,
+    minHeight: '50%', maxHeight: '75%', padding: spacing.screenPadding, ...shadows.level2,
+  },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: palette.borderSubtle, alignSelf: 'center', marginBottom: spacing.lg },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  title: { ...fonts.screenTitle, color: palette.textPrimary },
+  closeBtn: { fontSize: 24, color: palette.textMuted },
+  subtitle: { ...fonts.caption, color: palette.textSecondary, marginBottom: spacing.lg },
+  scroll: { flexGrow: 1 },
+  exRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: palette.white, borderRadius: radius.sm, padding: 14,
+    marginBottom: 8, ...shadows.card,
+  },
+  exInfo: { flex: 1 },
+  exName: { ...fonts.cardTitle, color: palette.textPrimary, marginBottom: 2 },
+  exMeta: { ...fonts.caption, color: palette.textSecondary },
+  exArrow: { ...fonts.cardValue, color: palette.primary, paddingLeft: 12 },
+  noAlt: { ...fonts.body, color: palette.textMuted, textAlign: 'center', paddingVertical: 24 },
+});
+
 // ═══════════════════════════════════════════════
 // Main Screen
 // ═══════════════════════════════════════════════
@@ -332,9 +417,10 @@ export const WorkoutModeScreen = () => {
 
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { profile } = useUserProfile();
   
-  // Need store direct actions for skip / cancel that aren't in the hook
-  const { skipExercise, cancelWorkout } = useWorkoutSessionStore();
+  // Need store direct actions for skip / cancel / replace that aren't in the hook
+  const { skipExercise, cancelWorkout, replaceExercise } = useWorkoutSessionStore();
 
   // Input state
   const [exerciseWeights, setExerciseWeights] = useState<Record<string, string>>({});
@@ -354,6 +440,9 @@ export const WorkoutModeScreen = () => {
 
   // Exercise Guide modal
   const [guideVisible, setGuideVisible] = useState(false);
+
+  // Exercise Replacement modal
+  const [replaceVisible, setReplaceVisible] = useState(false);
 
   // Historical Weight Fetching from workout_sets
   const { data: previousWeight } = useQuery({
@@ -432,6 +521,9 @@ export const WorkoutModeScreen = () => {
       }
 
       // Feature 1: Auto-prefill weight logic based on ISOLATED state
+      const increment = profile?.level === 'beginner' ? 2.5 : 5;
+      const suggestedWeight = (previousWeight !== null && previousWeight !== undefined) ? Number(previousWeight) + increment : null;
+
       const lastCompletedSet = currentExercise.sets.slice().reverse().find(s => s.completed);
       let newWeightVal = exerciseWeights[exId] || '';
 
@@ -443,14 +535,16 @@ export const WorkoutModeScreen = () => {
         }
       } else if (!exerciseWeights[exId]) {
         // First set of this exercise -> check historical DB weight
-        if (previousWeight !== null && previousWeight !== undefined) {
+        if (suggestedWeight !== null) {
+          newWeightVal = String(suggestedWeight);
+        } else if (previousWeight !== null && previousWeight !== undefined) {
           newWeightVal = String(previousWeight);
         }
       }
 
       setExerciseWeights(prev => ({ ...prev, [exId]: newWeightVal }));
     }
-  }, [currentExerciseIndex, currentExercise, previousWeight]);
+  }, [currentExerciseIndex, currentExercise, previousWeight, profile?.level]);
 
   // ─── Handlers ────────────────────────────────
   const handleCompleteSet = useCallback(() => {
@@ -494,7 +588,7 @@ export const WorkoutModeScreen = () => {
   }, [editingSetIndex, editWeight, editReps, editDuration, editSet, currentExerciseIndex]);
 
   const handleFinish = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const summary = finish();
     navigation.replace('WorkoutSummary', { summary });
   }, [finish, navigation]);
@@ -520,6 +614,20 @@ export const WorkoutModeScreen = () => {
       } },
     ]);
   }, [skipExercise, isLastExercise, handleFinish]);
+
+  const handleReplaceExercise = useCallback((poolEx: PoolExercise) => {
+    replaceExercise(currentExerciseIndex, {
+      id: poolEx.id,
+      name: poolEx.name,
+      category: poolEx.category,
+    });
+    // Clear weight input for the new exercise
+    setExerciseWeights(prev => {
+      const next = { ...prev };
+      delete next[currentExercise?.exerciseId || ''];
+      return next;
+    });
+  }, [replaceExercise, currentExerciseIndex, currentExercise]);
 
   // ─── Guard ───────────────────────────────────
   if (!isActive || !currentExercise) {
@@ -556,6 +664,14 @@ export const WorkoutModeScreen = () => {
         exerciseId={currentExercise.exerciseId}
       />
 
+      {/* Exercise Replacement Modal */}
+      <ExerciseReplacementModal
+        visible={replaceVisible}
+        onClose={() => setReplaceVisible(false)}
+        currentExerciseName={currentExercise.exerciseName}
+        onSelect={handleReplaceExercise}
+      />
+
       {/* Header */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={handleExit} hitSlop={12} style={styles.exitWrap}>
@@ -578,6 +694,15 @@ export const WorkoutModeScreen = () => {
           targetDuration={currentExercise.targetDuration}
           onGuidePress={() => setGuideVisible(true)}
         />
+
+        {/* Suggested Weight UI */}
+        {previousWeight !== null && previousWeight !== undefined && currentSetIndex === 0 && !currentExercise.sets[0].completed && (
+          <View style={styles.historyBox}>
+            <Text style={styles.historyText}>
+              Last: {previousWeight} lbs | Suggested: {Number(previousWeight) + (profile?.level === 'beginner' ? 2.5 : 5)} lbs
+            </Text>
+          </View>
+        )}
 
         {/* Set List */}
         <View style={styles.setsContainer}>
@@ -683,9 +808,14 @@ export const WorkoutModeScreen = () => {
           )}
           
           {!isCurrentExerciseComplete && (
-            <TouchableOpacity style={styles.skipExBtn} onPress={handleSkipExercise} activeOpacity={0.7}>
-              <Text style={styles.skipExBtnText}>Skip Exercise</Text>
-            </TouchableOpacity>
+            <View style={styles.skipReplaceRow}>
+              <TouchableOpacity style={styles.replaceExBtn} onPress={() => setReplaceVisible(true)} activeOpacity={0.7}>
+                <Text style={styles.replaceExBtnText}>🔄 Replace</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.skipExBtn} onPress={handleSkipExercise} activeOpacity={0.7}>
+                <Text style={styles.skipExBtnText}>Skip Exercise</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {(isWorkoutComplete || (isCurrentExerciseComplete && isLastExercise)) && (
@@ -736,6 +866,9 @@ const styles = StyleSheet.create({
   completedInfo: { ...fonts.body, color: palette.success },
   tapToEdit: { ...fonts.caption, color: palette.textMuted, marginTop: 4, fontStyle: 'italic' },
 
+  historyBox: { backgroundColor: palette.primarySoft, paddingVertical: 10, paddingHorizontal: 16, borderRadius: radius.card, marginHorizontal: spacing.screenPadding, marginBottom: 12, alignItems: 'center', borderWidth: 1, borderColor: palette.primary + '30' },
+  historyText: { ...fonts.label, color: palette.primary, fontWeight: '600' },
+
   // Inputs
   inputArea: { gap: 12 },
   inputRow: { flexDirection: 'row', gap: 12 },
@@ -758,6 +891,9 @@ const styles = StyleSheet.create({
   nextBtnText: { ...fonts.button, color: palette.white },
   finishBtn: { backgroundColor: palette.success, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', ...shadows.button },
   finishBtnText: { ...fonts.button, color: palette.white },
-  skipExBtn: { backgroundColor: palette.bgSecondary, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
+  skipExBtn: { flex: 1, backgroundColor: palette.bgSecondary, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
   skipExBtnText: { ...fonts.button, color: palette.textSecondary },
+  skipReplaceRow: { flexDirection: 'row', gap: 12 },
+  replaceExBtn: { flex: 1, backgroundColor: palette.primarySoft, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: palette.primary + '30' },
+  replaceExBtnText: { ...fonts.button, color: palette.primary },
 });

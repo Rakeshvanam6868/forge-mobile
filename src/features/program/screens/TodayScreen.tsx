@@ -376,7 +376,7 @@ export const TodayScreen = () => {
         }
 
         {/* MEALS - Only show if not completed today, and usually on rest days they have specific meal plans too */}
-        {lifecycleState !== 'SESSION_COMPLETED_TODAY' && (
+        {/* {lifecycleState !== 'SESSION_COMPLETED_TODAY' && (
           <SectionBlock title="Meals">
             {adaptivePlan.mealAdjustment !== 'none' && (
               <View style={styles.mealAdjustBanner}>
@@ -400,7 +400,7 @@ export const TodayScreen = () => {
               ))
             )}
           </SectionBlock>
-        )}
+        )} */}-
       </ScrollView>
 
       {/* Exercise Detail Modal */}
