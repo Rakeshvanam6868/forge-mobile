@@ -68,7 +68,7 @@ export const ProgressScreen = () => {
   if (!consistency || consistency.total === 0) {
     return (
       <SafeAreaView style={[styles.screen, styles.center]}>
-        <Text style={styles.emptyEmoji}>📉</Text>
+        <Text style={styles.emptyEmoji}>💪</Text>
         <Text style={styles.emptyTitle}>No progress data yet.</Text>
         <Text style={styles.emptyText}>Complete your first workout to start tracking your strength, volume, and consistency!</Text>
         <View style={styles.logoutWrap}><AuthButton title="Logout" onPress={handleLogout} variant="outline" /></View>
@@ -95,13 +95,13 @@ export const ProgressScreen = () => {
 
       {/* ══════ STREAK HERO ══════ */}
       <View style={styles.heroWrap}>
-        <GradientCard colors={['#1E293B', '#2D3A4F']}>
+        <View style={styles.heroCard}>
           <View style={styles.heroContent}>
             <Text style={styles.heroFlame}>🔥</Text>
             <Text style={styles.heroNum}>{currentStreak}</Text>
             <Text style={styles.heroLabel}>Day Streak</Text>
           </View>
-        </GradientCard>
+        </View>
       </View>
 
       {/* ══════ TABS ══════ */}
@@ -127,7 +127,7 @@ export const ProgressScreen = () => {
             <View style={styles.statsGrid}>
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>Current Streak</Text>
-                <Text style={styles.statVal}>{consistency?.currentStreak} 🔥</Text>
+                <Text style={styles.statVal}>{consistency?.currentStreak}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>Total Workouts</Text>
@@ -139,7 +139,7 @@ export const ProgressScreen = () => {
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>Longest Streak</Text>
-                <Text style={styles.statVal}>{consistency?.longestStreak} 🏆</Text>
+                <Text style={styles.statVal}>{consistency?.longestStreak}</Text>
               </View>
             </View>
 
@@ -176,7 +176,7 @@ export const ProgressScreen = () => {
                     <VictoryBar 
                       horizontal
                       data={muscleData} 
-                      style={{ data: { fill: palette.info,   width: 20 } }} 
+                      style={{ data: { fill: palette.primary, width: 20 } }} 
                       animate={{ duration: 500 }}
                     />
                   </VictoryChart>
@@ -240,56 +240,64 @@ export const ProgressScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.bgPrimary },
+  screen: { flex: 1, backgroundColor: palette.bgBase },
   center: { justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: { ...fonts.statValue, color: palette.textPrimary, marginBottom: 8 },
+  emptyTitle: { ...fonts.h1, color: palette.textPrimary, marginBottom: 8 },
   emptyText: { ...fonts.body, color: palette.textSecondary, textAlign: 'center' },
-  header: { padding: spacing.screenPadding, paddingBottom: 8 },
-  headerTitle: { ...fonts.screenTitle, color: palette.textPrimary },
+  header: { padding: spacing.screenPadding, paddingBottom: 8, paddingTop: 40 },
+  headerTitle: { ...fonts.h1, color: palette.textPrimary },
 
   // Hero streak
   heroWrap: { paddingHorizontal: spacing.screenPadding, marginBottom: 16 },
-  heroContent: { alignItems: 'center', paddingVertical: spacing.innerMd },
-  heroFlame: { fontSize: 40, marginBottom: spacing.xs },
-  heroNum: { ...fonts.heroNumber, color: palette.white, lineHeight: 60 },
-  heroLabel: { ...fonts.sectionHeader, color: palette.textOnDark, marginTop: -2 },
+  heroCard: {
+    backgroundColor: palette.bgCard,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
+    paddingVertical: spacing.xl,
+  },
+  heroContent: { alignItems: 'center', justifyContent: 'center' },
+  heroFlame: { fontSize: 44, marginBottom: spacing.sm },
+  heroNum: { ...fonts.stat, fontSize: 64, color: palette.primary, lineHeight: 72, textAlign: 'center' },
+  heroLabel: { ...fonts.h3, color: palette.textPrimary, marginTop: -4, textTransform: 'uppercase', fontSize: 13, letterSpacing: 1, textAlign: 'center' },
 
   // Tabs
-  tabContainer: { flexDirection: 'row', paddingHorizontal: spacing.screenPadding, marginBottom: 16, gap: 8 },
-  tabBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: palette.bgSecondary },
-  tabBtnActive: { backgroundColor: palette.primary },
-  tabText: { ...fonts.caption, fontWeight: '600', color: palette.textSecondary },
+  tabContainer: { flexDirection: 'row', paddingHorizontal: spacing.screenPadding, marginBottom: 20, gap: 10 },
+  tabBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: radius.md, backgroundColor: palette.bgElevated, borderWidth: 1, borderColor: palette.borderSubtle },
+  tabBtnActive: { backgroundColor: palette.primary, borderColor: palette.primary },
+  tabText: { ...fonts.label, color: palette.textSecondary, fontWeight: '700' },
   tabTextActive: { color: palette.white },
 
   // Scroll content
-  scrollContent: { padding: spacing.screenPadding, paddingBottom: 60, gap: spacing.sectionGap },
+  scrollContent: { padding: spacing.screenPadding, paddingBottom: 100, gap: spacing.xxl },
 
   // Stats grid
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  statCard: { flex: 1, minWidth: '45%', backgroundColor: palette.white, padding: 16, borderRadius: radius.md, ...shadows.card },
-  statLabel: { ...fonts.caption, color: palette.textSecondary, marginBottom: 4 },
-  statVal: { ...fonts.statValue, color: palette.textPrimary },
+  statCard: { flex: 1, minWidth: '45%', backgroundColor: palette.bgCard, padding: 16, borderRadius: radius.md, borderWidth: 1, borderColor: palette.borderSubtle },
+  statLabel: { ...fonts.label, color: palette.textSecondary, marginBottom: 8, textTransform: 'uppercase', fontSize: 10 },
+  statVal: { ...fonts.stat, color: palette.primary, fontSize: 20 },
 
   // Charts
-  chartCard: { backgroundColor: palette.white, borderRadius: radius.md, padding: 16, ...shadows.card },
-  cardTitle: { ...fonts.cardTitle, color: palette.textPrimary, marginBottom: 8 },
+  chartCard: { backgroundColor: palette.bgCard, borderRadius: radius.md, padding: 16, borderWidth: 1, borderColor: palette.borderSubtle },
+  cardTitle: { ...fonts.h3, color: palette.textPrimary, marginBottom: 16 },
   chartWrapper: { alignItems: 'center', justifyContent: 'center', marginHorizontal: -20 },
 
   // PRs
   prsContainer: { gap: 12 },
-  prCard: { backgroundColor: palette.bgSecondary, padding: 16, borderRadius: radius.sm },
-  prName: { ...fonts.cardTitle, color: palette.textPrimary, marginBottom: 8 },
+  prCard: { backgroundColor: palette.bgCard, padding: 16, borderRadius: radius.md, borderWidth: 1, borderColor: palette.borderSubtle },
+  prName: { ...fonts.h3, color: palette.textPrimary, marginBottom: 10 },
   prRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  prStat: { ...fonts.caption, color: palette.textSecondary },
-  prVal: { fontWeight: '700', color: palette.textPrimary },
+  prStat: { ...fonts.label, color: palette.textSecondary, textTransform: 'uppercase', fontSize: 10 },
+  prVal: { fontWeight: '700', color: palette.textPrimary, fontSize: 12 },
 
-  // Frequency insights (NEW)
+  // Frequency insights
   insightsCard: {
-    backgroundColor: palette.white,
+    backgroundColor: palette.bgCard,
     borderRadius: radius.md,
-    padding: spacing.cardPadding,
-    ...shadows.card,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
   },
   insightsRow: {
     flexDirection: 'row',
@@ -298,11 +306,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   insightItem: { alignItems: 'center', flex: 1 },
-  insightVal: { ...fonts.statValue, color: palette.primary },
+  insightVal: { ...fonts.stat, color: palette.primary, fontSize: 24 },
   insightBadgeEmoji: { fontSize: 28, marginBottom: 2 },
-  insightLabel: { ...fonts.caption, color: palette.textSecondary, marginTop: 4 },
+  insightLabel: { ...fonts.label, color: palette.textSecondary, marginTop: 6, textTransform: 'uppercase', fontSize: 10 },
   insightDivider: { width: 1, height: 40, backgroundColor: palette.borderSubtle },
 
   // Logout
-  logoutWrap: { marginTop: spacing.lg, marginBottom: spacing.xl },
+  logoutWrap: { marginTop: spacing.lg, marginBottom: 40 },
 });

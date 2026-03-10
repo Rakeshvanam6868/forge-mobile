@@ -28,7 +28,8 @@ export const AnalyticsScreen = () => {
       <GreetingHeader />
 
       {/* ══════ HERO: Consistency Score (gradient) ══════ */}
-      <GradientCard colors={['#1E293B', '#2D3A4F']}>
+      {/* ══════ HERO: Consistency Score ══════ */}
+      <View style={styles.heroCard}>
         <View style={styles.heroContent}>
           <Text style={styles.heroLabel}>Consistency Score</Text>
           <Text style={styles.heroScore}>{consistencyScore}</Text>
@@ -37,7 +38,7 @@ export const AnalyticsScreen = () => {
             <Text style={styles.heroDate}>Since {analytics.firstSeenDate ?? '—'}</Text>
           </View>
         </View>
-      </GradientCard>
+      </View>
 
       {/* Retention */}
       <SectionBlock title="Retention">
@@ -46,7 +47,7 @@ export const AnalyticsScreen = () => {
             {(['d1', 'd3', 'd7', 'd14', 'd30'] as const).map((k) => (
               <View key={k} style={styles.retCell}>
                 <Text style={styles.retLabel}>{k.toUpperCase()}</Text>
-                <Text style={styles.retVal}>{retention[k] === null ? '—' : retention[k] ? '✅' : '❌'}</Text>
+                <Text style={styles.retVal}>{retention[k] === null ? '—' : retention[k] ? 'DONE' : 'MISS'}</Text>
               </View>
             ))}
           </View>
@@ -55,7 +56,7 @@ export const AnalyticsScreen = () => {
 
       <SectionBlock title="Activation">
         <PrimaryCard>
-          <Row label="Activated" value={activation.isActivated ? '✅ Yes' : '❌ No'} />
+          <Row label="Activated" value={activation.isActivated ? 'YES' : 'NO'} />
           <Row label="Time to Activate" value={activation.activationTimeHours !== null ? `${activation.activationTimeHours}h` : '—'} />
         </PrimaryCard>
       </SectionBlock>
@@ -92,7 +93,7 @@ export const AnalyticsScreen = () => {
           <StatCard value={`${usage.activeDaysLast7}/7`} label="Last 7d" mono />
           <StatCard value={`${usage.activeDaysLast30}/30`} label="Last 30d" mono />
         </View>
-        <PrimaryCard><Row label="Trend" value={`${TREND_EMOJI[usage.usageTrend]} ${usage.usageTrend}`} /></PrimaryCard>
+        <PrimaryCard><Row label="Trend" value={usage.usageTrend.toUpperCase()} /></PrimaryCard>
       </SectionBlock>
 
       <SectionBlock title="Session Depth">
@@ -125,27 +126,34 @@ const Row = ({ label, value }: { label: string; value: string }) => (
 function pct(n: number): string { return `${Math.round(n * 100)}%`; }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.bgPrimary },
+  screen: { flex: 1, backgroundColor: palette.bgBase },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: spacing.screenPadding, paddingTop: 56 },
+  content: { padding: spacing.screenPadding, paddingTop: 40 },
 
+  heroCard: {
+    backgroundColor: palette.bgCard,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
+    paddingVertical: spacing.lg,
+  },
   heroContent: { alignItems: 'center' },
-  heroLabel: { ...fonts.label, color: palette.textOnDarkMuted },
-  heroScore: { ...fonts.heroNumber, color: palette.textOnDark, marginVertical: spacing.innerSm },
-  heroBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.innerMd, marginTop: spacing.innerSm },
-  heroDate: { ...fonts.caption, color: palette.textOnDarkMuted },
+  heroLabel: { ...fonts.label, color: palette.textSecondary, textTransform: 'uppercase' },
+  heroScore: { ...fonts.stat, fontSize: 64, color: palette.primary, marginVertical: spacing.sm },
+  heroBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.innerMd, marginTop: spacing.md },
+  heroDate: { ...fonts.label, color: palette.textMuted },
 
-  retRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  retRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm },
   retCell: { alignItems: 'center', flex: 1 },
-  retLabel: { ...fonts.badge, color: palette.textMuted, marginBottom: spacing.innerSm },
-  retVal: { fontSize: 18 },
+  retLabel: { ...fonts.label, color: palette.textSecondary, marginBottom: spacing.sm, fontSize: 10 },
+  retVal: { ...fonts.label, fontSize: 13, color: palette.textPrimary, fontWeight: '700' },
 
-  tileGrid: { flexDirection: 'row', gap: spacing.innerMd, marginBottom: spacing.innerMd },
+  tileGrid: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
 
-  metricRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.innerSm },
-  metricLabel: { ...fonts.body, color: palette.textMuted },
-  metricValue: { ...fonts.tabular, color: palette.textPrimary },
+  metricRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: palette.borderSubtle },
+  metricLabel: { ...fonts.body, color: palette.textSecondary, fontSize: 13 },
+  metricValue: { ...fonts.mono, fontSize: 13 },
 
-  noDropOff: { alignItems: 'center', padding: spacing.lg },
-  noDropOffText: { ...fonts.body, color: palette.success },
+  noDropOff: { alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: palette.bgCard, borderWidth: 1, borderColor: palette.borderSubtle },
+  noDropOffText: { ...fonts.label, color: palette.primary, fontWeight: '700' },
 });

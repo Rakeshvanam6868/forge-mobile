@@ -80,20 +80,21 @@ export const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.bgPrimary },
+  container: { flex: 1, backgroundColor: palette.bgBase },
   scrollContent: {
     flexGrow: 1,
     padding: spacing.screenPadding,
     justifyContent: 'center',
+    paddingTop: 40,
   },
   illustrationArea: {
     alignItems: 'center',
-    marginBottom: spacing['3xl'],
+    marginBottom: spacing.xxl,
   },
   illustrationEmoji: { fontSize: 64 },
-  header: { marginBottom: spacing['3xl'] },
-  title: { ...fonts.programDayTitle, color: palette.text, marginBottom: spacing.sm },
+  header: { marginBottom: spacing.xxl },
+  title: { ...fonts.h1, color: palette.textPrimary, marginBottom: spacing.sm },
   subtitle: { ...fonts.body, color: palette.textSecondary, lineHeight: 22 },
   form: { width: '100%' },
-  buttonGroup: { marginTop: spacing.lg },
+  buttonGroup: { marginTop: spacing.lg, gap: spacing.md },
 });

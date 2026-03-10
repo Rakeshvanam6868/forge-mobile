@@ -1,16 +1,17 @@
 /**
- * Design Tokens v5 — Clean Card + iOS Font Fix
+ * Design Tokens — Dark Theme SaaS Aesthetic
  *
- * Cards: pure white, NO borders, iOS-optimized shadows (no Android elevation artifacts)
- * Fonts: SF Pro (iOS) / Roboto (Android) via Platform.select
- * Background: #EEF2F7 blue-gray
- * Radius: 24 cards, 14 inner
+ * Matches the TrainSmarter landing page:
+ * - Pure black backgrounds layered with depth
+ * - Ultra-thin borders (rgba 255,255,255,0.05)
+ * - #FF3B3B red accent & glow shadows
+ * - Inter/system fonts with strict typography scale
  */
 
 import { Platform } from 'react-native';
 
 // ═══════════════════════════════════════════════
-// Font family — iOS system (SF Pro) or Roboto
+// Font family — Inter/System
 // ═══════════════════════════════════════════════
 
 const fontFamily = Platform.select({
@@ -19,91 +20,73 @@ const fontFamily = Platform.select({
   default: 'System',
 });
 
-// ═══════════════════════════════════════════════
-// Surfaces
-// ═══════════════════════════════════════════════
-
+// ─── Surfaces & Colors ───────────────────────────
 export const palette = {
-  bgPrimary: '#EEF2F7',
-  bgSecondary: '#FFFFFF',
-  bgElevated: '#E8F0FE',
-  bgHero: '#1E293B',
-  bgHeroEnd: '#334155',
-
-  textPrimary: '#1A1F36',
-  textSecondary: '#4A5568',
-  textMuted: '#94A3B8',
-  textOnDark: '#F1F5F9',
-  textOnDarkMuted: 'rgba(241, 245, 249, 0.55)',
-
-  borderSubtle: 'rgba(0, 0, 0, 0.03)',
-  borderFocus: 'rgba(37, 99, 235, 0.12)',
-
-  primary: '#2563EB',
-  primaryLight: '#DBEAFE',
-  primarySoft: 'rgba(37, 99, 235, 0.06)',
-  primaryDark: '#1D4ED8',
-
-  success: '#16A34A',
-  successLight: '#F0FDF4',
-  successSoft: 'rgba(22, 163, 74, 0.07)',
-  warning: '#F59E0B',
-  warningLight: '#FFFBEB',
-  warningSoft: 'rgba(245, 158, 11, 0.07)',
-  danger: '#EF4444',
-  dangerLight: '#FEF2F2',
-  dangerSoft: 'rgba(239, 68, 68, 0.07)',
+  // Brand
+  primary:       '#FF3B3B',   // Primary brand red
+  primarySoft:   'rgba(255, 59, 59, 0.05)',
+  primarySubtle: 'rgba(255, 59, 59, 0.1)',
+  primaryGlow:   'rgba(255, 59, 59, 0.15)',
+  
+  // Backgrounds
+  bgBase:        '#0B0B0B',   // Root screen background
+  bgCard:        '#121212',   // Card background
+  bgElevated:    '#1A1A1A',   // Moderately elevated
+  bgInner:       '#161616',   // Inner containers
+  bgInput:       '#0F0F0F',   // Input backgrounds
+  
+  // Borders
+  borderSubtle:  '#242424',   // Standard card/section borders
+  borderLight:   '#2A2A2A',   // Highlighted or interactive borders
+  
+  // Text
+  textPrimary:   '#FFFFFF',
+  textSecondary: '#A1A1A1',   // Standard body/secondary text
+  textMuted:     '#666666',   // Dimmed text
+  
+  // Semantic
+  success: '#22C55E',
+  successSubtle: 'rgba(34, 197, 94, 0.1)',
+  warning: '#FBBF24',
+  warningSubtle: 'rgba(251, 191, 36, 0.1)',
   info: '#3B82F6',
-  infoLight: '#EFF6FF',
-
-  easy: '#86EFAC',
-  normal: '#93C5FD',
-  hard: '#FDBA74',
-  deload: '#C4B5FD',
-
+  danger: '#FF3B3B',
+  dangerSubtle: 'rgba(255, 59, 59, 0.1)',
+  accentAmber: '#FBBF24',
+  
   white: '#FFFFFF',
   black: '#000000',
-  overlay: 'rgba(15, 23, 42, 0.5)',
-
-  accentAmber: '#F59E0B',
-  accentGreen: '#16A34A',
-  accentBlue: '#3B82F6',
-  accentPurple: '#8B5CF6',
-
-  iconTint: 'rgba(37, 99, 235, 0.05)',
-  iconTintWarm: 'rgba(245, 158, 11, 0.07)',
-  iconTintGreen: 'rgba(22, 163, 74, 0.07)',
-
-  background: '#EEF2F7',
-  surface: '#F1F5F9',
-  card: '#FFFFFF',
-  text: '#1A1F36',
-  textSecondary2: '#4A5568',
-  textTertiary: '#94A3B8',
-  border: 'rgba(0, 0, 0, 0.03)',
-  inputBackground: '#F5F7FA',
 } as const;
 
-// ═══════════════════════════════════════════════
-// Spacing — 8pt grid
-// ═══════════════════════════════════════════════
+// ─── Typography ────────────────────────────────
+export const fonts = {
+  h1:             { fontFamily, fontSize: 28, fontWeight: '800' as const, color: palette.textPrimary, letterSpacing: -0.5 },
+  h2:             { fontFamily, fontSize: 22, fontWeight: '700' as const, color: palette.textPrimary, letterSpacing: -0.3 },
+  h3:             { fontFamily, fontSize: 18, fontWeight: '700' as const, color: palette.textPrimary },
+  body:           { fontFamily, fontSize: 14, fontWeight: '400' as const, color: palette.textSecondary, lineHeight: 22 },
+  label:          { fontFamily, fontSize: 12, fontWeight: '600' as const, color: palette.textSecondary, letterSpacing: 0.5 },
+  labelXs:        { fontFamily, fontSize: 10, fontWeight: '700' as const, color: palette.textMuted, letterSpacing: 1, textTransform: 'uppercase' as const },
+  stat:           { fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }), fontSize: 24, fontWeight: '800' as const, color: palette.textPrimary },
+  mono:           { fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }), fontSize: 14, fontWeight: '700' as const, color: palette.primary },
+  button:         { fontFamily, fontSize: 15, fontWeight: '600' as const, color: palette.white },
+} as const;
 
+// ─── Spacing ──────────────────────────────────
+// Consistent spacing tokens: 8, 12, 16, 24
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  '2xl': 24,
-  '3xl': 32,
-  '4xl': 40,
-  '5xl': 48,
-  screenPadding: 20,
-  sectionGap: 32,
-  cardGap: 14,
-  innerSm: 8,
+  xs: 8,
+  sm: 12,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 40,
+  
+  // Layout specific
+  screenPadding: 16,
+  sectionGap: 24,
+  cardGap: 12,
+  cardPadding: 16,
   innerMd: 12,
-  cardPadding: 20,
 } as const;
 
 // ═══════════════════════════════════════════════
@@ -111,175 +94,43 @@ export const spacing = {
 // ═══════════════════════════════════════════════
 
 export const radius = {
-  inner: 14,
-  sm: 14,
-  md: 14,
-  lg: 24,
-  xl: 24,
-  card: 24,
-  icon: 14,
-  pill: 999,
-  full: 999,
+  sm:   8,
+  md:   12,  // Buttons, inputs
+  lg:   16,  // Cards, chart containers
+  xl:   20,  // Large cards
+  full: 9999, // Pills, badges
+  pill: 9999,
+  card: 16,
+  icon: 12,
+  inner: 8,
   tabBar: 24,
 } as const;
 
 // ═══════════════════════════════════════════════
-// Shadows — iOS-only approach (no elevation = no Android border artifacts)
+// Shadows
 // ═══════════════════════════════════════════════
 
 export const shadows = {
-  level1: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 0,
-  },
-  level2: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 0,
-  },
-  focus: {
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 0,
-  },
   card: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 0,
+    elevation: 4,
   },
-  cardHover: {
-    shadowColor: '#000',
+  glow: {
+    shadowColor: '#FF3B3B',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.15,
     shadowRadius: 14,
-    elevation: 0,
+    elevation: 8,
   },
-  button: {
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 0,
+  inner: {
+    // Simulated
   },
-} as const;
-
-// ═══════════════════════════════════════════════
-// Typography — iOS / SF Pro style
-// ═══════════════════════════════════════════════
-
-export const fonts = {
-  heroNumber: {
-    fontFamily,
-    fontSize: 34,
-    fontWeight: '700' as const,
-    lineHeight: 40,
-    letterSpacing: -1,
-  },
-  programDayTitle: {
-    fontFamily,
-    fontSize: 22,
-    fontWeight: '600' as const,
-    lineHeight: 28,
-    letterSpacing: -0.4,
-  },
-  screenTitle: {
-    fontFamily,
-    fontSize: 22,
-    fontWeight: '600' as const,
-    lineHeight: 28,
-    letterSpacing: -0.4,
-  },
-  sectionHeader: {
-    fontFamily,
-    fontSize: 17,
-    fontWeight: '600' as const,
-    lineHeight: 22,
-    letterSpacing: -0.2,
-  },
-  cardTitle: {
-    fontFamily,
-    fontSize: 15,
-    fontWeight: '500' as const,
-    lineHeight: 20,
-    letterSpacing: -0.1,
-  },
-  cardValue: {
-    fontFamily,
-    fontSize: 17,
-    fontWeight: '600' as const,
-    lineHeight: 22,
-    letterSpacing: -0.2,
-  },
-  body: {
-    fontFamily,
-    fontSize: 15,
-    fontWeight: '400' as const,
-    lineHeight: 20,
-    letterSpacing: -0.1,
-  },
-  bodyMedium: {
-    fontFamily,
-    fontSize: 15,
-    fontWeight: '500' as const,
-    lineHeight: 20,
-    letterSpacing: -0.1,
-  },
-  caption: {
-    fontFamily,
-    fontSize: 13,
-    fontWeight: '400' as const,
-    lineHeight: 18,
-    letterSpacing: 0,
-  },
-  label: {
-    fontFamily,
-    fontSize: 13,
-    fontWeight: '500' as const,
-    lineHeight: 18,
-    letterSpacing: 0,
-  },
-  badge: {
-    fontFamily,
-    fontSize: 11,
-    fontWeight: '600' as const,
-    lineHeight: 14,
-    letterSpacing: 0.6,
-  },
-  statValue: {
-    fontFamily,
-    fontSize: 22,
-    fontWeight: '600' as const,
-    lineHeight: 28,
-    letterSpacing: -0.4,
-  },
-  statLabel: {
-    fontFamily,
-    fontSize: 13,
-    fontWeight: '400' as const,
-    lineHeight: 18,
-  },
-  tabular: {
-    fontFamily,
-    fontSize: 17,
-    fontWeight: '600' as const,
-    lineHeight: 22,
-    letterSpacing: -0.2,
-    fontVariant: ['tabular-nums'] as ('tabular-nums')[],
-  },
-  button: {
-    fontFamily,
-    fontSize: 17,
-    fontWeight: '600' as const,
-    lineHeight: 22,
-    letterSpacing: -0.2,
-  },
+  level1: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  level2: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 },
+  button: { shadowColor: '#FF3B3B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.39, shadowRadius: 14, elevation: 8 },
+  focus: { shadowColor: '#FF3B3B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 14, elevation: 8 },
+  cardHover: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 },
 } as const;

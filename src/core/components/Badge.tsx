@@ -12,15 +12,15 @@ interface BadgeProps {
 const V: Record<BadgeVariant, { bg: string; fg: string }> = {
   primary: { bg: palette.primarySoft,  fg: palette.primary },
   success: { bg: palette.successSoft,  fg: palette.success },
-  warning: { bg: palette.warningSoft,  fg: '#B45309' },
-  danger:  { bg: palette.dangerSoft,   fg: palette.danger },
-  info:    { bg: 'rgba(59,130,246,0.07)', fg: palette.info },
-  easy:    { bg: 'rgba(22,163,74,0.08)',  fg: '#16A34A' },
-  normal:  { bg: 'rgba(37,99,235,0.07)',  fg: '#2563EB' },
-  hard:    { bg: 'rgba(234,88,12,0.08)',  fg: '#EA580C' },
-  deload:  { bg: 'rgba(139,92,246,0.08)', fg: '#7C3AED' },
-  neutral: { bg: 'rgba(148,163,184,0.08)', fg: palette.textMuted },
-  dark:    { bg: 'rgba(255,255,255,0.12)', fg: palette.textOnDark },
+  warning: { bg: palette.warningSoft,  fg: palette.warning },
+  danger:  { bg: 'rgba(239, 68, 68, 0.1)', fg: palette.danger },
+  info:    { bg: 'rgba(59,130,246,0.1)', fg: palette.info },
+  easy:    { bg: palette.successSoft,  fg: palette.success },
+  normal:  { bg: 'rgba(59,130,246,0.1)', fg: palette.info },
+  hard:    { bg: palette.warningSoft,  fg: palette.warning },
+  deload:  { bg: 'rgba(139,92,246,0.1)', fg: '#8B5CF6' },
+  neutral: { bg: palette.bgInner, fg: palette.textSecondary },
+  dark:    { bg: palette.bgElevated, fg: palette.textPrimary },
 };
 
 export const Badge: React.FC<BadgeProps> = ({ label, variant = 'primary' }) => {

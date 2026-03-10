@@ -30,10 +30,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing['2xl'],
+    marginBottom: 24,
   },
   textGroup: { flex: 1 },
-  title: { ...fonts.screenTitle, color: palette.text },
+  title: { ...fonts.h1, color: palette.textPrimary },
   subtitle: { ...fonts.body, color: palette.textSecondary, marginTop: spacing.xs },
-  action: { ...fonts.bodyMedium, color: palette.primary },
+  action: { ...fonts.bodyMedium, color: palette.primary, fontWeight: '700' },
 });

@@ -45,39 +45,42 @@ export const generateProgram = async (
   level: string,
   location: string,
   dietType: string
-): Promise<void> => {
-  // 1. Fetch real complete profile to get behavioral inputs
+): Promise<{ program_id: string } | null> => {
+  // 1. Try to fetch existing profile for behavioral inputs
+  // During onboarding, the profile may not exist yet — fall back to function params
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select('*')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (profileErr) throw profileErr;
 
-  // Build the deterministic state
+  // Build the deterministic state — prefer profile data, fall back to function params
   const state: UserTrainingState = {
-    level: (profile.level || 'beginner').toLowerCase() as any,
-    frequency: profile.weekly_frequency as any,
-    lastWorkout: profile.last_workout_type as any,
-    goal: (profile.goal || 'general_fitness').toLowerCase() as any,
+    level: (profile?.level || level || 'beginner').toLowerCase() as any,
+    frequency: (profile?.weekly_frequency || '3-4') as any,
+    lastWorkout: (profile?.last_workout_type || 'none') as any,
+    goal: (profile?.goal || goal || 'general_fitness').toLowerCase() as any,
   };
 
   // 2. Insert new program row
-  const { data: program, error: programError } = await supabase
+  // Use array extraction instead of .single() to avoid coercion error
+  const { data: programRows, error: programError } = await supabase
     .from('programs')
     .insert({
       user_id: userId,
-      goal: profile.goal,
-      level: profile.level,
-      location: profile.environment,
-      diet_type: profile.diet_type,
+      goal: profile?.goal || goal,
+      level: profile?.level || level,
+      location: profile?.environment || location,
+      diet_type: profile?.diet_type || dietType,
       duration_weeks: 4,
     })
-    .select()
-    .single();
+    .select();
 
   if (programError) throw programError;
+  const program = Array.isArray(programRows) ? programRows[0] : programRows;
+  if (!program) throw new Error('Failed to create program');
 
   // Simulate 28 days of history chaining to generate exactly the right schedule
   let currentHistory: UserWorkoutHistory = {
@@ -88,13 +91,15 @@ export const generateProgram = async (
 
   // 3. Generate 4 weeks
   for (let w = 1; w <= 4; w++) {
-    const { data: week, error: weekError } = await supabase
+    // Use array extraction instead of .single() to prevent coercion error
+    const { data: weekRows, error: weekError } = await supabase
       .from('program_weeks')
       .insert({ program_id: program.id, week_number: w })
-      .select()
-      .single();
+      .select();
 
     if (weekError) throw weekError;
+    const week = Array.isArray(weekRows) ? weekRows[0] : weekRows;
+    if (!week) throw new Error(`Failed to create week ${w}`);
 
     // 4. Generate 7 days per week sequentially
     for (let d = 0; d < 7; d++) {
@@ -116,7 +121,8 @@ export const generateProgram = async (
       // Get the correct template matching the deterministic output
       const template = getTemplateForType(nextOutput.workoutType, state.level, location, state.goal);
 
-      const { data: day, error: dayError } = await supabase
+      // Use array extraction instead of .single() to prevent coercion error
+      const { data: dayRows, error: dayError } = await supabase
         .from('program_days')
         .insert({
           program_week_id: week.id,
@@ -124,10 +130,11 @@ export const generateProgram = async (
           title: template.title,
           focus_type: template.focus_type,
         })
-        .select()
-        .single();
+        .select();
 
       if (dayError) throw dayError;
+      const day = Array.isArray(dayRows) ? dayRows[0] : dayRows;
+      if (!day) throw new Error(`Failed to create day ${d + 1}`);
 
       // Insert workouts
       if (template.workouts.length > 0) {
@@ -136,7 +143,9 @@ export const generateProgram = async (
         
         const workoutRows = template.workouts.map((w, i) => ({
           program_day_id: day.id,
-          exercise_id: w.exercise_id,
+          // NOTE: exercise_id intentionally omitted — the pool IDs don't match
+          // the exercise_details table IDs, causing FK violations. exercise_name
+          // is the primary identifier used by the UI and adaptive engine.
           exercise_name: w.exercise_name,
           sets: w.sets ? Math.max(1, Math.round(w.sets * mult)) : null,
           reps: w.reps ?? null,
@@ -161,7 +170,7 @@ export const generateProgram = async (
     }
 
     // 5. Insert grocery list
-    const groceries = buildGroceryList(profile.diet_type || 'Any', profile.goal || 'General Fitness');
+    const groceries = buildGroceryList(profile?.diet_type || dietType || 'Any', profile?.goal || goal || 'General Fitness');
     const groceryRows = groceries.map((g) => ({
       program_week_id: week.id,
       category: g.category,
@@ -170,6 +179,9 @@ export const generateProgram = async (
     const { error: gErr } = await supabase.from('week_groceries').insert(groceryRows);
     if (gErr) throw gErr;
   }
+
+  // Return the program as a single JSON object (fixes coercion error)
+  return { program_id: program.id };
 };
 
 // ═══════════════════════════════════════════════

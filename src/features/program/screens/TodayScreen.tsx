@@ -24,16 +24,16 @@ import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/de
 import { useLayoutTokens } from '../../../core/theme/layout';
 
 const ENERGIES = [
-  { level: 1, emoji: '😫', label: 'Low' },
-  { level: 2, emoji: '😐', label: 'Average' },
-  { level: 3, emoji: '🤩', label: 'High' },
+  { level: 1, label: 'LOW' },
+  { level: 2, label: 'AVG' },
+  { level: 3, label: 'HIGH' },
 ];
-const DIFFICULTIES: { value: Difficulty; emoji: string; label: string }[] = [
-  { value: 'easy', emoji: '😎', label: 'Easy' },
-  { value: 'medium', emoji: '💪', label: 'Just Right' },
-  { value: 'hard', emoji: '🥵', label: 'Hard' },
+const DIFFICULTIES: { value: Difficulty; label: string }[] = [
+  { value: 'easy', label: 'EASY' },
+  { value: 'medium', label: 'MODERATE' },
+  { value: 'hard', label: 'INTENSE' },
 ];
-const FOCUS_ICONS: Record<string, string> = { strength: '💪', cardio: '🏃', mobility: '🧘', rest: '😴' };
+const FOCUS_ICONS: Record<string, string> = { strength: '💪', cardio: '💪', mobility: '💪', rest: 'REST' };
 const MEAL_EMOJI: Record<string, string> = { breakfast: '🌅', lunch: '☀️', snack: '🍎', dinner: '🌙' };
 const MEAL_ADJUSTMENT_LABELS: Record<string, string> = {
   calorie_up: '⬆️ +150 cal (muscle gain boost)',
@@ -264,14 +264,14 @@ export const TodayScreen = () => {
             activeOpacity={0.8}
             onPress={() => navigation.navigate('WorkoutMode', { workouts: adaptedWorkouts })}
           >
-            <Text style={styles.startWorkoutEmoji}>🏋️</Text>
+            <Text style={styles.startWorkoutEmoji}>💪</Text>
             <Text style={styles.startWorkoutText}>Start Workout</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.actionSection}>
-        {renderFeedback('How was this workout?', DIFFICULTIES.map((d) => ({ key: d.value, emoji: d.emoji, label: d.label })), difficulty, setDifficulty)}
-        {renderFeedback('How is your energy?', ENERGIES.map((e) => ({ key: String(e.level), emoji: e.emoji, label: e.label })), String(energyLevel), (v: string) => setEnergyLevel(parseInt(v, 10)))}
+        {renderFeedback('How was this workout?', DIFFICULTIES.map((d) => ({ key: d.value, label: d.label })), difficulty, setDifficulty)}
+        {renderFeedback('How is your energy?', ENERGIES.map((e) => ({ key: String(e.level), label: e.label })), String(energyLevel), (v: string) => setEnergyLevel(parseInt(v, 10)))}
         {/* {renderRating('Strength Rating (1-10)', strengthRating, setStrengthRating)}
         {renderRating('Pump Rating (1-10)', pumpRating, setPumpRating)} */}
         <AuthButton title={completeToday.isPending || saveHistory.isPending ? 'Saving...' : 'Complete Day'} onPress={handleDone} disabled={completeToday.isPending || saveHistory.isPending} />
@@ -279,19 +279,21 @@ export const TodayScreen = () => {
     </>
     );
   };
-
+ 
   const renderCompletedState = () => (
     <View style={styles.completedContainer}>
-      <GradientCard colors={['#166534', '#15803D']} style={styles.completionCard}>
-        <View style={styles.completionContent}>
-          <Text style={styles.completionFlame}>🔥</Text>
+    <View style={styles.completionCard}>
+      <View style={styles.rowCenter}>
+        <Text style={styles.completionIcon}>🔥</Text>
+        <View style={styles.flex}>
           <Text style={styles.completionTitle}>Session Finished</Text>
           <Text style={styles.completionSub}>You crushed today's target.</Text>
         </View>
-      </GradientCard>
+      </View>
+    </View>
       
       <View style={styles.insightBox}>
-        <Text style={styles.heroIcon}>🧠</Text>
+        <Text style={styles.insightIcon}>💪</Text>
         <Text style={styles.insightText}>Recovery Insight:</Text>
         <Text style={styles.insightValue}>
           {getRecoveryInsight(
@@ -300,7 +302,7 @@ export const TodayScreen = () => {
           )}
         </Text>
       </View>
-
+ 
       <View style={styles.nextDateBox}>
         <Text style={styles.nextDateLabel}>Next session</Text>
         <Text style={styles.nextDateValue}>{nextTrainingDateString}</Text>
@@ -324,7 +326,7 @@ export const TodayScreen = () => {
 
         {lifecycleState === 'MISSED_TRAINING_DAY' && (
           <View style={styles.warningBanner}>
-            <View style={styles.iconWrapWarning}><Text style={styles.iconInner}>⚠️</Text></View>
+            <View style={styles.iconWrap}><Text style={styles.iconInner}>💪</Text></View>
             <View style={styles.warningContent}>
               <Text style={styles.warningTitle}>Missed Session</Text>
               <Text style={styles.warningText}>You missed your scheduled day. Catch up on this workout to protect your sequence.</Text>
@@ -334,7 +336,7 @@ export const TodayScreen = () => {
 
         {lifecycleState === 'RECOVERY_DAY' && (
           <View style={styles.infoBanner}>
-            <View style={styles.iconWrapInfo}><Text style={styles.iconInner}>🧘</Text></View>
+            <View style={styles.iconWrap}><Text style={styles.iconInner}>💪</Text></View>
             <View style={styles.warningContent}>
               <Text style={styles.infoTitle}>Recovery Day</Text>
               <Text style={styles.infoText}>Your body grows while resting. Next session is {nextTrainingDateString}.</Text>
@@ -343,26 +345,26 @@ export const TodayScreen = () => {
         )}
 
         {adaptivePlan.systemMessage && lifecycleState !== 'SESSION_COMPLETED_TODAY' ? (
-          <GradientCard colors={['#1E293B', '#2D3A4F']} style={styles.heroCustom}>
-            <View style={styles.heroInner}>
-              <View style={styles.heroIconWrap}>
-                <Text style={styles.heroIcon}>🧠</Text>
-              </View>
-              <View style={styles.heroTextBlock}>
-                <Text style={styles.heroMessage}>{adaptivePlan.systemMessage}</Text>
-                <View style={styles.heroBadges}>
-                  <Badge label={adaptivePlan.intensity.toUpperCase()} variant="dark" />
-                  {adaptivePlan.recoveryMode && <Badge label="RECOVERY" variant="dark" />}
-                </View>
+        <View style={styles.heroCustom}>
+          <View style={styles.heroInner}>
+            <View style={styles.heroIconWrap}>
+              <Text style={styles.heroIcon}>💪</Text>
+            </View>
+            <View style={styles.heroTextBlock}>
+              <Text style={styles.heroMessage}>{adaptivePlan.systemMessage}</Text>
+              <View style={styles.heroBadges}>
+                <Badge label={adaptivePlan.intensity.toUpperCase()} variant="dark" />
+                {adaptivePlan.recoveryMode && <Badge label="RECOVERY" variant="dark" />}
               </View>
             </View>
-          </GradientCard>
+          </View>
+        </View>
         ) : null}
 
         {lifecycleState !== 'SESSION_COMPLETED_TODAY' && (
           <View style={styles.headerBlock}>
             <Text style={styles.headerCaption}>UPCOMING SESSION</Text>
-            <Text style={styles.headerTitle}>{FOCUS_ICONS[workoutType] || '📋'}  {dayDetail.title}</Text>
+            <Text style={styles.headerTitle}>{FOCUS_ICONS[workoutType] === 'REST' ? 'REST DAY' : `💪 ${dayDetail.title}`}</Text>
             <Text style={styles.headerMeta}>{uiSubLabel}</Text>
           </View>
         )}
@@ -400,7 +402,7 @@ export const TodayScreen = () => {
               ))
             )}
           </SectionBlock>
-        )} */}-
+        )} */}
       </ScrollView>
 
       {/* Exercise Detail Modal */}
@@ -488,14 +490,13 @@ export const TodayScreen = () => {
   );
 };
 
-function renderFeedback(title: string, items: { key: string; emoji: string; label: string }[], selected: string, onSelect: (val: any) => void) {
+function renderFeedback(title: string, items: { key: string; label: string }[], selected: string, onSelect: (val: any) => void) {
   return (
     <View style={styles.fbBlock}>
       <Text style={styles.fbTitle}>{title}</Text>
       <View style={styles.fbRow}>
         {items.map((it) => (
           <TouchableOpacity key={it.key} style={[styles.fbBtn, selected === it.key && styles.fbBtnActive]} onPress={() => onSelect(it.key)} activeOpacity={0.8}>
-            <Text style={styles.fbEmoji}>{it.emoji}</Text>
             <Text style={[styles.fbLabel, selected === it.key && styles.fbLabelActive]}>{it.label}</Text>
           </TouchableOpacity>
         ))}
@@ -520,127 +521,134 @@ function renderRating(title: string, value: number | null, onSelect: (val: numbe
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.bgPrimary },
+  screen: { flex: 1, backgroundColor: palette.bgBase },
   scrollView: { flex: 1 },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: spacing.screenPadding, paddingTop: 56 },
-  emptyText: { ...fonts.body, color: palette.textMuted },
-  heroCustom: { paddingVertical: spacing['2xl'], paddingHorizontal: spacing['2xl'], marginBottom: spacing.lg },
-  heroInner: { flexDirection: 'row', alignItems: 'flex-start' },
-  heroIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: spacing.innerMd },
-  heroIcon: { fontSize: 20 },
-  heroTextBlock: { flex: 1 },
-  heroMessage: { ...fonts.body, color: palette.textOnDark, lineHeight: 22 },
-  heroBadges: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.innerMd },
-  iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: palette.iconTint, alignItems: 'center', justifyContent: 'center' },
-  iconWrapWarning: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' },
-  iconWrapInfo: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center' },
+  content: { padding: spacing.screenPadding, paddingTop: 40 },
+  emptyText: { ...fonts.body, color: palette.textSecondary },
+  heroCustom: { paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, marginBottom: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: palette.borderSubtle },
+  heroInner: { flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
+  heroIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: palette.bgElevated, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md, borderWidth: 1, borderColor: palette.borderLight },
+  heroIcon: { fontSize: 24 },
+  heroTextBlock: { alignItems: 'center', width: '100%' },
+  heroMessage: { ...fonts.body, color: palette.textPrimary, lineHeight: 22, textAlign: 'center' },
+  heroBadges: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, justifyContent: 'center' },
+  iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: palette.bgElevated, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
   iconInner: { fontSize: 20 },
-  headerBlock: { marginBottom: spacing.innerSm, marginTop: spacing.innerMd },
-  headerCaption: { ...fonts.badge, color: palette.primary, marginBottom: spacing.xs },
-  headerTitle: { ...fonts.programDayTitle, color: palette.textPrimary },
-  headerMeta: { ...fonts.label, color: palette.textMuted, marginTop: spacing.innerSm },
+  headerBlock: { marginBottom: spacing.sm, marginTop: spacing.sm, alignItems: 'center' },
+  headerCaption: { ...fonts.label, color: palette.primary, marginBottom: spacing.xs, textTransform: 'uppercase', letterSpacing: 1 },
+  headerTitle: { ...fonts.h1, color: palette.textPrimary, textAlign: 'center' },
+  headerMeta: { ...fonts.body, color: palette.textSecondary, marginTop: spacing.xs, textAlign: 'center' },
   exerciseRow: { flexDirection: 'row', alignItems: 'center' },
-  stepCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.primary, alignItems: 'center', justifyContent: 'center', marginRight: spacing.innerMd },
-  stepNum: { ...fonts.label, color: palette.white, fontWeight: '600' },
+  stepCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: palette.bgElevated, alignItems: 'center', justifyContent: 'center', marginRight: spacing.innerMd, borderWidth: 1, borderColor: palette.borderLight },
+  stepNum: { ...fonts.label, color: palette.textSecondary, fontWeight: '700' },
   exerciseBody: { flex: 1 },
   exerciseNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
-  exerciseName: { ...fonts.cardTitle, color: palette.textPrimary, flexShrink: 1 },
-  exerciseSets: { ...fonts.body, color: palette.textSecondary, marginTop: 2 },
+  exerciseName: { ...fonts.h3, color: palette.textPrimary, flexShrink: 1 },
+  exerciseSets: { ...fonts.body, color: palette.textSecondary, marginTop: 4 },
   
   // AI Optional Fields Styles
-  aiMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, flexWrap: 'wrap', gap: spacing.sm },
-  aiMetaBadge: { backgroundColor: palette.bgSecondary, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.inner },
-  aiMetaBadgeText: { ...fonts.caption, color: palette.textPrimary },
-  aiCueText: { ...fonts.caption, color: palette.textMuted, flexShrink: 1, fontStyle: 'italic' },
-  progressionBox: { backgroundColor: palette.primarySoft, alignSelf: 'flex-start', paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.inner, marginTop: spacing.xs },
-  progressionText: { ...fonts.caption, color: palette.primary, fontWeight: '600' },
+  aiMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, flexWrap: 'wrap', gap: spacing.sm },
+  aiMetaBadge: { backgroundColor: palette.bgElevated, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.md, borderWidth: 1, borderColor: palette.borderLight },
+  aiMetaBadgeText: { ...fonts.label, color: palette.textSecondary, fontSize: 11 },
+  aiCueText: { ...fonts.body, color: palette.textMuted, fontSize: 13, flexShrink: 1, fontStyle: 'italic' },
+  progressionBox: { backgroundColor: palette.primarySoft, alignSelf: 'flex-start', paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.md, marginTop: spacing.sm, borderWidth: 1, borderColor: palette.primarySubtle },
+  progressionText: { ...fonts.label, color: palette.primary, fontWeight: '700', fontSize: 11 },
 
   // Warm-up Block Styles
   warmupCardInner: { paddingVertical: spacing.xs },
   warmupRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm },
   warmupDot: { ...fonts.body, color: palette.primary, marginRight: spacing.sm, fontSize: 18, lineHeight: 22 },
   warmupText: { ...fonts.body, color: palette.textSecondary, flex: 1, lineHeight: 22 },
-  warmupName: { color: palette.textPrimary, fontWeight: '500' },
+  warmupName: { color: palette.textPrimary, fontWeight: '600' },
 
-  mealAdjustBanner: { backgroundColor: palette.warningSoft, borderRadius: radius.inner, padding: spacing.innerMd, marginBottom: spacing.cardGap },
-  mealAdjustText: { ...fonts.bodyMedium, color: '#C2410C', textAlign: 'center' },
+  mealAdjustBanner: { backgroundColor: palette.bgElevated, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.cardGap, borderWidth: 1, borderColor: palette.warningSubtle },
+  mealAdjustText: { ...fonts.body, color: palette.warning, textAlign: 'center' },
   mealRow: { flexDirection: 'row', alignItems: 'center' },
   mealInfo: { flex: 1, marginLeft: spacing.innerMd },
-  mealType: { ...fonts.caption, color: palette.textMuted, textTransform: 'uppercase' },
-  mealTitle: { ...fonts.cardTitle, color: palette.textPrimary, marginTop: 1 },
-  mealDesc: { ...fonts.body, color: palette.textMuted, marginTop: 2 },
+  mealType: { ...fonts.label, color: palette.textSecondary, textTransform: 'uppercase' },
+  mealTitle: { ...fonts.h3, color: palette.textPrimary, marginTop: 2 },
+  mealDesc: { ...fonts.body, color: palette.textSecondary, marginTop: 4 },
   
   // States
   completedContainer: { marginTop: spacing.sectionGap },
-  completionCard: { paddingVertical: spacing['2xl'] },
-  completionContent: { alignItems: 'center' },
-  completionFlame: { fontSize: 44, marginBottom: spacing.innerSm },
-  completionTitle: { ...fonts.sectionHeader, color: 'rgba(255,255,255,0.85)', marginTop: spacing.innerSm },
-  completionSub: { ...fonts.body, color: 'rgba(255,255,255,0.55)', marginTop: spacing.xs },
+  completionCard: { 
+    backgroundColor: palette.bgCard,
+    padding: spacing.md, 
+    borderRadius: radius.md, 
+    borderWidth: 1, 
+    borderColor: palette.borderSubtle,
+    marginBottom: spacing.lg,
+  },
+  rowCenter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  flex: { flex: 1 },
+  completionIcon: { fontSize: 32 },
+  completionTitle: { ...fonts.h3, color: palette.textPrimary },
+  completionSub: { ...fonts.body, color: palette.textSecondary, fontSize: 13, marginTop: 2 },
   
-  insightBox: { backgroundColor: palette.bgSecondary, padding: spacing.innerMd, borderRadius: radius.card, marginTop: spacing.cardGap, flexDirection: 'row', alignItems: 'center', ...shadows.level1 },
-  insightText: { ...fonts.label, color: palette.textPrimary, marginLeft: spacing.sm, marginRight: spacing.xs },
-  insightValue: { ...fonts.body, color: palette.textMuted, flex: 1 },
+  insightBox: { backgroundColor: palette.bgCard, padding: 16, borderRadius: radius.md, marginTop: spacing.cardGap, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle, gap: 12 },
+  insightIcon: { fontSize: 20 },
+  insightText: { ...fonts.label, color: palette.textPrimary, textTransform: 'uppercase', fontSize: 11 },
+  insightValue: { ...fonts.body, color: palette.textSecondary, flex: 1, fontSize: 13 },
   
-  nextDateBox: { backgroundColor: palette.bgElevated, padding: spacing.lg, borderRadius: radius.card, marginTop: spacing.cardGap, alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
-  nextDateLabel: { ...fonts.label, color: palette.textMuted, textTransform: 'uppercase', marginBottom: 4 },
-  nextDateValue: { ...fonts.screenTitle, color: palette.primary },
-  nextDatePreview: { ...fonts.caption, color: palette.textSecondary, marginTop: spacing.sm },
+  nextDateBox: { backgroundColor: palette.bgCard, padding: spacing.lg, borderRadius: radius.md, marginTop: spacing.cardGap, alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
+  nextDateLabel: { ...fonts.label, color: palette.textSecondary, textTransform: 'uppercase', marginBottom: 4 },
+  nextDateValue: { ...fonts.h1, color: palette.primary, fontSize: 32 },
+  nextDatePreview: { ...fonts.body, color: palette.textSecondary, marginTop: spacing.sm },
 
-  actionSection: { marginTop: spacing.sectionGap, paddingTop: spacing['2xl'], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.borderSubtle },
+  actionSection: { marginTop: spacing.sectionGap, paddingTop: spacing.xl, borderTopWidth: 1, borderTopColor: palette.borderSubtle },
   fbBlock: { marginBottom: spacing.xl },
-  fbTitle: { ...fonts.cardTitle, color: palette.textPrimary, textAlign: 'center', marginBottom: spacing.innerMd },
-  fbRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.innerMd },
-  fbBtn: { alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.innerMd, borderRadius: radius.inner, backgroundColor: palette.bgSecondary, width: 94, minHeight: 84, ...shadows.level1 },
-  fbBtnActive: { backgroundColor: palette.bgElevated, ...shadows.focus },
+  fbTitle: { ...fonts.h3, color: palette.textPrimary, textAlign: 'center', marginBottom: spacing.innerMd },
+  fbRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.md },
+  fbBtn: { alignItems: 'center', paddingVertical: spacing.md, paddingHorizontal: spacing.sm, borderRadius: radius.md, backgroundColor: palette.bgElevated, width: 100, minHeight: 90, borderWidth: 1, borderColor: palette.borderSubtle },
+  fbBtnActive: { borderColor: palette.primary, backgroundColor: palette.primarySoft },
   fbEmoji: { fontSize: 26, marginBottom: spacing.xs },
-  fbLabel: { ...fonts.caption, color: palette.textMuted },
-  fbLabelActive: { color: palette.primary },
+  fbLabel: { ...fonts.label, color: palette.textSecondary },
+  fbLabelActive: { color: palette.primary, fontWeight: '700' },
 
-  warningBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.warningSoft, borderRadius: radius.inner, padding: spacing.lg, marginBottom: spacing.lg },
-  infoBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F9FF', borderRadius: radius.inner, padding: spacing.lg, marginBottom: spacing.lg },
-  warningContent: { flex: 1, marginLeft: spacing.innerMd },
-  warningTitle: { ...fonts.cardTitle, color: '#92400E' },
-  warningText: { ...fonts.body, color: '#B45309', marginTop: 2 },
-  infoTitle: { ...fonts.cardTitle, color: '#0369A1' },
-  infoText: { ...fonts.body, color: '#0284C7', marginTop: 2 },
+  warningBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.bgCard, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg, borderWidth: 1, borderColor: palette.borderSubtle, gap: 12 },
+  infoBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.bgCard, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg, borderWidth: 1, borderColor: palette.borderSubtle, gap: 12 },
+  warningContent: { flex: 1 },
+  warningTitle: { ...fonts.h3, color: palette.primary },
+  warningText: { ...fonts.body, color: palette.textSecondary, marginTop: 4, fontSize: 13 },
+  infoTitle: { ...fonts.h3, color: palette.primary },
+  infoText: { ...fonts.body, color: palette.textSecondary, marginTop: 4, fontSize: 13 },
   
   ratingBlock: { marginBottom: spacing.xl },
-  ratingRow: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: spacing.sm },
-  ratingBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: palette.bgSecondary, alignItems: 'center', justifyContent: 'center', ...shadows.level1 },
-  ratingBtnActive: { backgroundColor: palette.primary, ...shadows.focus },
-  ratingLabel: { ...fonts.body, color: palette.textMuted },
+  ratingRow: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 10 },
+  ratingBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: palette.bgElevated, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.borderLight },
+  ratingBtnActive: { backgroundColor: palette.primary, borderColor: palette.primaryGlow },
+  ratingLabel: { ...fonts.body, color: palette.textSecondary },
   ratingLabelActive: { color: palette.white, fontWeight: 'bold' },
   
   // Modal Bottom Sheet
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  bottomSheet: { backgroundColor: palette.bgPrimary, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card, minHeight: '50%', maxHeight: '85%', padding: spacing.screenPadding, ...shadows.level2 },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: palette.borderSubtle, alignSelf: 'center', marginBottom: spacing.lg },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  bottomSheet: { backgroundColor: palette.bgBase, borderTopLeftRadius: 32, borderTopRightRadius: 32, minHeight: '50%', maxHeight: '85%', padding: spacing.screenPadding, borderWidth: 1, borderColor: palette.borderLight },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: palette.bgInner, alignSelf: 'center', marginBottom: spacing.lg },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
-  sheetTitle: { ...fonts.screenTitle, color: palette.textPrimary, flex: 1 },
-  closeBtn: { fontSize: 24, color: palette.textMuted },
+  sheetTitle: { ...fonts.h1, color: palette.textPrimary, flex: 1 },
+  closeBtn: { fontSize: 24, color: palette.textSecondary },
   sheetScroll: { flexGrow: 1 },
   tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xl },
-  muscleTag: { backgroundColor: palette.bgSecondary, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.inner },
-  muscleTagText: { ...fonts.caption, color: palette.textPrimary, fontWeight: '500' },
-  sectionHeader: { ...fonts.label, color: palette.textPrimary, marginTop: spacing.md, marginBottom: spacing.sm },
-  stepsWrap: { gap: spacing.sm },
+  muscleTag: { backgroundColor: palette.bgElevated, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.md, borderWidth: 1, borderColor: palette.borderLight },
+  muscleTagText: { ...fonts.label, color: palette.textPrimary, fontWeight: '600', textTransform: 'uppercase' },
+  sectionHeader: { ...fonts.label, color: palette.textSecondary, marginTop: spacing.md, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
+  stepsWrap: { gap: spacing.md },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  stepDot: { ...fonts.body, color: palette.primary, marginRight: spacing.sm, width: 20 },
+  stepDot: { ...fonts.body, color: palette.primary, marginRight: spacing.sm, width: 24, fontSize: 18 },
   stepText: { ...fonts.body, color: palette.textSecondary, flex: 1, lineHeight: 22 },
-  tipBox: { backgroundColor: palette.primarySoft, padding: spacing.innerMd, borderRadius: radius.card, flexDirection: 'row', alignItems: 'flex-start', marginTop: spacing.xs },
+  tipBox: { backgroundColor: palette.primarySoft, padding: spacing.md, borderRadius: radius.lg, flexDirection: 'row', alignItems: 'flex-start', marginTop: spacing.sm, borderWidth: 1, borderColor: palette.primarySubtle },
   tipIcon: { fontSize: 20, marginRight: spacing.sm },
-  tipText: { ...fonts.body, color: palette.primary, flex: 1, lineHeight: 22 },
+  tipText: { ...fonts.body, color: palette.primary, flex: 1, lineHeight: 22, fontWeight: '500' },
 
   // Start Workout Button
-  startWorkoutWrap: { paddingHorizontal: spacing.screenPadding, paddingVertical: spacing.xl },
+  startWorkoutWrap: { paddingVertical: spacing.xl },
   startWorkoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: palette.primary, borderRadius: radius.card,
+    backgroundColor: palette.primary, borderRadius: radius.md,
     paddingVertical: 18, gap: 10,
     ...shadows.button,
   },
   startWorkoutEmoji: { fontSize: 22 },
-  startWorkoutText: { ...fonts.button, color: palette.white, fontSize: 18 },
+  startWorkoutText: { ...fonts.button, color: palette.white, fontSize: 18, letterSpacing: 0.5 },
 });

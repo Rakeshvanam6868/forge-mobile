@@ -61,15 +61,15 @@ export const HomeScreen = () => {
         nextTrainingDateString={nextDateStr} 
       />
 
-      {/* ══════ HERO STREAK (gradient) ══════ */}
-      <GradientCard colors={['#1E293B', '#2D3A4F']}>
+      {/* ══════ HERO STREAK ══════ */}
+      <View style={styles.heroCard}>
         <View style={styles.heroContent}>
           <Text style={styles.heroFlame}>🔥</Text>
           <Text style={styles.heroNum}>{currentStreak}</Text>
           <Text style={styles.heroLabel}>Day Streak</Text>
           <Text style={styles.heroMeta}>Adaptive Timeline</Text>
         </View>
-      </GradientCard>
+      </View>
 
       {/* Stat tiles */}
       <View style={styles.statRow}>
@@ -96,17 +96,24 @@ export const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.bgPrimary },
+  screen: { flex: 1, backgroundColor: palette.bgBase },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: spacing.screenPadding, paddingTop: spacing['3xl'] },
+  content: { padding: spacing.screenPadding, paddingTop: 40 },
   
-  heroContent: { alignItems: 'center', paddingVertical: spacing.innerMd },
-  heroFlame: { fontSize: 48, marginBottom: spacing.xs },
-  heroNum: { ...fonts.heroNumber, color: palette.white, lineHeight: 72 },
-  heroLabel: { ...fonts.sectionHeader, color: palette.textOnDark, marginTop: -4 },
-  heroMeta: { ...fonts.caption, color: 'rgba(255,255,255,0.6)', marginTop: spacing.md },
+  heroCard: {
+    backgroundColor: palette.bgCard,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
+    paddingVertical: spacing.xl,
+  },
+  heroContent: { alignItems: 'center', justifyContent: 'center' },
+  heroFlame: { fontSize: 44, marginBottom: spacing.xs },
+  heroNum: { ...fonts.h1, fontSize: 64, color: palette.primary, lineHeight: 72, textAlign: 'center' },
+  heroLabel: { ...fonts.h3, color: palette.textPrimary, marginTop: -4, textAlign: 'center' },
+  heroMeta: { ...fonts.label, color: palette.textMuted, marginTop: spacing.md, textTransform: 'uppercase' },
 
-  statRow: { flexDirection: 'row', gap: spacing.innerSm, marginTop: spacing.cardGap, marginBottom: spacing.sectionGap },
+  statRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.cardGap, marginBottom: spacing.sectionGap },
   
-  logoutWrap: { marginTop: spacing['4xl'], marginBottom: spacing.xl },
+  logoutWrap: { marginTop: spacing.xxl, marginBottom: 80 },
 });

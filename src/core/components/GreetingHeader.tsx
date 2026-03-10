@@ -52,25 +52,27 @@ const styles = StyleSheet.create({
   },
   left: { flex: 1 },
   greeting: {
-    ...fonts.screenTitle,
+    ...fonts.h1,
     color: palette.textPrimary,
   },
   date: {
-    ...fonts.caption,
-    color: palette.textMuted,
+    ...fonts.body,
+    color: palette.textSecondary,
     marginTop: spacing.xs,
   },
   avatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: palette.primarySoft,
+    backgroundColor: palette.bgElevated,
+    borderWidth: 1,
+    borderColor: palette.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.innerMd,
   },
   avatarText: {
-    ...fonts.sectionHeader,
+    ...fonts.h3,
     color: palette.primary,
   },
 });

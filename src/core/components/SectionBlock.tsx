@@ -16,5 +16,5 @@ export const SectionBlock: React.FC<SectionBlockProps> = ({ title, children }) =
 
 const styles = StyleSheet.create({
   container: { marginTop: spacing.sectionGap },
-  title: { ...fonts.sectionHeader, color: palette.textPrimary, marginBottom: spacing.innerMd },
+  title: { ...fonts.h2, color: palette.textPrimary, marginBottom: spacing.md, opacity: 0.9 },
 });

@@ -32,18 +32,19 @@ export const useCurrentWeek = (programId: string | undefined, weekNumber: number
     queryFn: async (): Promise<WeekData | null> => {
       if (!programId) return null;
 
-      // Fetch the week row
+      // Use .maybeSingle() to prevent "Cannot coerce" error
       const { data: week, error: weekError } = await supabase
         .from('program_weeks')
         .select('*')
         .eq('program_id', programId)
         .eq('week_number', weekNumber)
-        .single();
+        .maybeSingle();
 
       if (weekError) {
         if (weekError.code === 'PGRST116') return null;
         throw weekError;
       }
+      if (!week) return null;
 
       // Fetch days for this week
       const { data: days, error: daysError } = await supabase

@@ -12,32 +12,36 @@ interface PrimaryCardProps {
   style?: ViewStyle;
 }
 
-const STATE_CONFIG: Record<CardState, { bg: string; shadow: ViewStyle }> = {
-  default:   { bg: palette.bgSecondary, shadow: shadows.level1 },
-  today:     { bg: palette.bgElevated,  shadow: shadows.focus },
-  completed: { bg: palette.successLight, shadow: shadows.level1 },
-  locked:    { bg: palette.bgPrimary,   shadow: shadows.level1 },
-  adapted:   { bg: palette.bgSecondary, shadow: shadows.level2 },
+const STATE_CONFIG: Record<CardState, { bg: string; border: string }> = {
+  default:   { bg: palette.bgCard, border: palette.borderSubtle },
+  today:     { bg: palette.bgCard, border: 'rgba(255,59,59,0.20)' },
+  completed: { bg: palette.bgCard, border: palette.successSubtle },
+  locked:    { bg: palette.bgCard, border: palette.borderSubtle },
+  adapted:   { bg: palette.bgCard, border: 'rgba(255,255,255,0.10)' },
 };
 
 export const PrimaryCard: React.FC<PrimaryCardProps> = ({ children, state = 'default', onPress, accentColor, style }) => {
   const scale = React.useRef(new Animated.Value(1)).current;
   const c = STATE_CONFIG[state];
+  const isToday = state === 'today' || accentColor != null;
 
   const handlePressIn = () => {
-    if (onPress) Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50 }).start();
+    if (onPress) Animated.spring(scale, { toValue: 0.98, useNativeDriver: true }).start();
   };
   const handlePressOut = () => {
-    if (onPress) Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
+    if (onPress) Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
   };
 
   const card = (
     <Animated.View
       style={[
         styles.container,
-        c.shadow,
-        { backgroundColor: c.bg, transform: [{ scale }] },
-        accentColor != null && styles.accentBorder,
+        { 
+          backgroundColor: c.bg, 
+          borderColor: c.border,
+          transform: [{ scale }] 
+        },
+        isToday && styles.accentBorder,
         accentColor != null && { borderLeftColor: accentColor },
         state === 'locked' && styles.locked,
         style,
@@ -60,11 +64,13 @@ export const PrimaryCard: React.FC<PrimaryCardProps> = ({ children, state = 'def
 const styles = StyleSheet.create({
   container: {
     borderRadius: radius.card,
-    padding: spacing.cardPadding,
+    padding: 20, // Specified 20px
     marginBottom: spacing.cardGap,
+    borderWidth: 1,
   },
   accentBorder: {
-    borderLeftWidth: 3,
+    borderLeftWidth: 2,
+    borderLeftColor: palette.primary,
   },
-  locked: { opacity: 0.40 },
+  locked: { opacity: 0.20 },
 });

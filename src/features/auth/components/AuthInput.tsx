@@ -21,15 +21,17 @@ export const AuthInput: React.FC<AuthInputProps> = ({ label, error, ...props }) 
 
 const styles = StyleSheet.create({
   container: { marginBottom: spacing.lg, width: '100%' },
-  label: { ...fonts.bodyMedium, color: palette.textPrimary, marginBottom: spacing.sm },
+  label: { ...fonts.label, color: palette.textSecondary, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
   input: {
-    backgroundColor: palette.inputBackground,
-    borderRadius: radius.inner,
+    backgroundColor: palette.bgInput,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: 14,
     color: palette.textPrimary,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
     ...fonts.body,
   },
-  inputError: { borderWidth: 1.5, borderColor: palette.danger },
+  inputError: { borderColor: palette.danger },
   errorText: { ...fonts.caption, color: palette.danger, marginTop: spacing.xs },
 });

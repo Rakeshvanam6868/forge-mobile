@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { useUserProfile } from '../features/onboarding/hooks/useUserProfile';
@@ -32,10 +33,10 @@ const AuthNavigator = () => (
 );
 
 const TAB_ITEMS = [
-  { name: 'Today', icon: '🏋️', component: TodayScreen },
-  { name: 'Week', icon: '📅', component: WeekScreen },
-  { name: 'Progress', icon: '📊', component: ProgressScreen },
-  { name: 'Analytics', icon: '🎯', component: AnalyticsScreen },
+  { name: 'Today', icon: 'fitness', component: TodayScreen },
+  { name: 'Week', icon: 'calendar', component: WeekScreen },
+  { name: 'Progress', icon: 'stats-chart', component: ProgressScreen },
+  { name: 'Analytics', icon: 'pie-chart', component: AnalyticsScreen },
 ];
 
 const AppTabs = () => {
@@ -47,20 +48,21 @@ const AppTabs = () => {
         headerShown: false,
         tabBarStyle: {
           position: 'absolute',
-          bottom: tabBarBottom,
-          left: 16,
-          right: 16,
-          backgroundColor: 'rgba(255,255,255,0.94)', 
-          borderRadius: radius.tabBar,
-          borderTopWidth: 0,
+          bottom: tabBarBottom - 4,
+          left: spacing.lg,
+          right: spacing.lg,
+          backgroundColor: 'rgba(15, 15, 15, 0.95)', 
+          borderRadius: 15,
           height: tabBarHeight,
-          paddingTop: spacing.innerSm,
-          paddingBottom: spacing.innerSm,
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+          paddingBottom: spacing.sm,
+          paddingTop: spacing.sm,
           ...shadows.level2,
         },
         tabBarActiveTintColor: palette.primary,
-        tabBarInactiveTintColor: palette.textMuted,
-        tabBarLabelStyle: { ...fonts.caption, fontSize: 10, marginTop: 2 },
+        tabBarInactiveTintColor: palette.textSecondary,
+        tabBarLabelStyle: { ...fonts.labelXs, fontSize: 10, marginTop: 2 },
       }}
     >
       {TAB_ITEMS.map((tab) => (
@@ -69,9 +71,13 @@ const AppTabs = () => {
           name={tab.name}
           component={tab.component}
           options={{
-            tabBarIcon: ({ focused }) => (
+            tabBarIcon: ({ focused, color }) => (
               <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
-                <Text style={styles.tabEmoji}>{tab.icon}</Text>
+                <Ionicons 
+                  name={focused ? tab.icon as any : `${tab.icon}-outline` as any} 
+                  size={focused ? 24 : 22} 
+                  color={color} 
+                />
               </View>
             ),
           }}
@@ -85,7 +91,7 @@ const MainNavigator = ({ hasProfile }: { hasProfile: boolean }) => (
   <MainStack.Navigator screenOptions={{ headerShown: false }}>
     {hasProfile ? (
       <>
-        <MainStack.Screen name="AppTabs" component={AppTabs} />
+        <MainStack.Screen name="MainTabs" component={AppTabs} />
         <MainStack.Screen
           name="WorkoutMode"
           component={WorkoutModeScreen}
@@ -120,13 +126,12 @@ export const RootNavigator = () => {
 };
 
 const styles = StyleSheet.create({
-  loadScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.bgPrimary },
+  loadScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.bgBase },
   tabIcon: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 44, height: 44, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
   },
-  tabIconActive: {
-    backgroundColor: palette.primarySoft,
-  },
-  tabEmoji: { fontSize: 20 },
+  // tabIconActive: {
+  //   backgroundColor: 'rgba(255, 59, 59, 0.05)',
+  // },
 });

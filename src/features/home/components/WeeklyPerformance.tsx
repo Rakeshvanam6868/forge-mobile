@@ -32,16 +32,17 @@ const Stat = ({ value, label, highlight }: { value: string; label: string; highl
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: palette.bgSecondary,
-    padding: spacing.cardPadding,
-    borderRadius: radius.card,
-    ...shadows.level1,
+    backgroundColor: palette.bgCard,
+    padding: 20,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
   },
-  title: { ...fonts.cardTitle, color: palette.textPrimary, marginBottom: spacing.lg },
+  title: { ...fonts.h3, color: palette.textPrimary, marginBottom: spacing.lg },
   row: { flexDirection: 'row', alignItems: 'center' },
-  divider: { width: StyleSheet.hairlineWidth, height: 32, backgroundColor: palette.borderSubtle, marginHorizontal: spacing.innerMd },
+  divider: { width: 1, height: 32, backgroundColor: palette.borderLight, marginHorizontal: spacing.innerMd },
   stat: { flex: 1, alignItems: 'center' },
-  statVal: { ...fonts.cardValue, color: palette.textPrimary },
+  statVal: { ...fonts.stat, color: palette.textPrimary },
   statHL: { color: palette.primary },
-  statLabel: { ...fonts.caption, color: palette.textMuted, marginTop: spacing.innerSm, textAlign: 'center' },
+  statLabel: { ...fonts.label, color: palette.textSecondary, marginTop: spacing.xs, textTransform: 'uppercase' },
 });

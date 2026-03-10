@@ -8,7 +8,7 @@ export const useLayoutTokens = () => {
   const insets = useSafeAreaInsets();
   return {
     tabBarHeight: TAB_BAR_BASE_HEIGHT + insets.bottom,
-    tabBarBottom: insets.bottom > 0 ? insets.bottom : 2,
-    scrollBottomPadding: TAB_BAR_BASE_HEIGHT + insets.bottom + 24,
+    tabBarBottom: insets.bottom > 0 ? insets.bottom : 4,
+    scrollBottomPadding: TAB_BAR_BASE_HEIGHT + insets.bottom + 14,
   };
 };

@@ -65,11 +65,9 @@ export const OnboardingScreen = () => {
     try {
       setIsGenerating(true);
 
-      // 1. Generate actual adaptive program (Blocks navigation)
-      // If this throws, onboarding_completed NEVER gets set to true, saving the user from a broken state!
-      await generateProgram(user.id, goal, level, environment, 'Any'); // 'Any' diet placeholder for now
-
-      // 2. Save all profile state including new fields
+      // STEP 1: Create the user profile FIRST (required for FK constraint)
+      // The `programs` table has a FK to `public.users`, so the row must exist.
+      // Set onboarding_completed: false so if generation fails, user stays on onboarding.
       await upsertProfile.mutateAsync({
         goal: goal,
         level: level,
@@ -77,14 +75,33 @@ export const OnboardingScreen = () => {
         diet_type: 'Any',
         weekly_frequency: frequency,
         last_workout_type: lastWorkout,
-        onboarding_completed: true, // Key to bypassing this screen later
+        onboarding_completed: false, // Will flip to true AFTER program succeeds
       });
 
-      // 3. Clear all caches so the app completely re-fetches the real program/grid
+      // STEP 2: Generate the adaptive program
+      // Now the user row exists, so the FK constraint is satisfied
+      const result = await generateProgram(user.id, goal, level, environment, 'Any');
+      
+      if (result?.program_id) {
+        console.log('[Onboarding] Program created:', result.program_id);
+      }
+
+      // STEP 3: Mark onboarding as complete (triggers navigation to MainTabs)
+      await upsertProfile.mutateAsync({
+        onboarding_completed: true,
+      });
+
+      // STEP 4: Clear all caches so the app re-fetches the real program data
       await queryClient.invalidateQueries();
 
     } catch (error: any) {
-      Alert.alert('Error building plan', error.message);
+      if (error) {
+        console.error('[Onboarding] Plan generation failed:', error);
+        Alert.alert(
+          'Setup Incomplete',
+          'There was a problem creating your plan. Please try again.'
+        );
+      }
       setIsGenerating(false);
     }
   };
@@ -177,44 +194,46 @@ export const OnboardingScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.bgPrimary },
+  container: { flex: 1, backgroundColor: palette.bgBase },
   content: { padding: spacing.screenPadding, paddingTop: 60, paddingBottom: 40 },
 
-  progressRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing['3xl'] },
-  progressDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: palette.borderSubtle },
+  progressRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xxl },
+  progressDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: palette.bgInner },
   progressDotActive: { backgroundColor: palette.primary },
 
-  header: { marginBottom: spacing['3xl'] },
-  title: { ...fonts.programDayTitle, color: palette.textPrimary, marginBottom: spacing.sm },
+  header: { marginBottom: spacing.xxl },
+  title: { ...fonts.h1, color: palette.textPrimary, marginBottom: spacing.sm },
   subtitle: { ...fonts.body, color: palette.textSecondary, lineHeight: 22 },
 
-  section: { marginBottom: spacing['2xl'] },
+  section: { marginBottom: spacing.xl },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm },
-  stepBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: palette.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  stepBadgeText: { ...fonts.badge, color: palette.primary },
-  sectionTitle: { ...fonts.sectionHeader, color: palette.textPrimary },
+  stepBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: palette.primarySoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,59,59,0.2)' },
+  stepBadgeText: { ...fonts.label, color: palette.primary },
+  sectionTitle: { ...fonts.h3, color: palette.textPrimary },
 
-  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   optionCard: {
     paddingVertical: spacing.md, paddingHorizontal: spacing.lg,
-    borderRadius: radius.md, backgroundColor: palette.bgSecondary,
-    borderWidth: 1, borderColor: palette.borderSubtle,
+    borderRadius: radius.md, backgroundColor: palette.bgElevated,
+    borderWidth: 1, borderColor: palette.borderLight,
   },
   optionCardSelected: {
-    backgroundColor: palette.primarySoft, borderColor: palette.primary,
+    borderColor: palette.primary,
+    backgroundColor: palette.primarySoft,
   },
-  optionText: { ...fonts.bodyMedium, color: palette.textSecondary },
-  optionTextSelected: { color: palette.primary },
+  optionText: { ...fonts.body, color: palette.textSecondary },
+  optionTextSelected: { color: palette.textPrimary, fontWeight: '700' },
 
   ctaContainer: { marginTop: spacing.xl },
-  backButton: { marginTop: spacing.lg, alignItems: 'center', padding: spacing.md },
-  backText: { ...fonts.button, color: palette.textMuted },
+  backButton: { marginTop: spacing.md, alignItems: 'center', padding: spacing.md },
+  backText: { ...fonts.body, color: palette.textSecondary },
 
-  loadingContainer: { flex: 1, backgroundColor: palette.bgPrimary, alignItems: 'center', justifyContent: 'center', padding: spacing.screenPadding },
+  loadingContainer: { flex: 1, backgroundColor: palette.bgBase, alignItems: 'center', justifyContent: 'center', padding: spacing.screenPadding },
   loadingCard: {
-    backgroundColor: palette.bgSecondary, borderRadius: radius.card, padding: spacing['3xl'],
-    alignItems: 'center', width: '100%', ...shadows.level2,
+    backgroundColor: palette.bgCard, borderRadius: radius.xl, padding: spacing.xxl,
+    alignItems: 'center', width: '100%', borderWidth: 1, borderColor: palette.borderSubtle,
+    ...shadows.glow,
   },
-  loadingTitle: { ...fonts.sectionHeader, color: palette.textPrimary, marginTop: spacing.xl, marginBottom: spacing.sm },
+  loadingTitle: { ...fonts.h2, color: palette.textPrimary, marginTop: spacing.xl, marginBottom: spacing.sm },
   loadingText: { ...fonts.body, color: palette.textSecondary, textAlign: 'center' },
 });

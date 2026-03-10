@@ -29,12 +29,14 @@ export const useTodayPlan = () => {
       // Map to 1-7 workout cycle
       const dayNumber = (totalCompleted % 7) + 1;
 
+      // Use .maybeSingle() to prevent "Cannot coerce" error
+      // if the plans table has duplicate rows or no rows for this user+day
       const { data, error } = await supabase
         .from('plans')
         .select('*')
         .eq('user_id', user.id)
         .eq('day_number', dayNumber)
-        .single();
+        .maybeSingle();
 
       if (error) {
         if (error.code === 'PGRST116') return null; // no row found

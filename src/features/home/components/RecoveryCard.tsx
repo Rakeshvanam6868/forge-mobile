@@ -13,7 +13,7 @@ export const RecoveryCard: React.FC<RecoveryCardProps> = ({ visible, nextTrainin
   return (
     <View style={styles.container}>
       <View style={styles.iconWrap}>
-        <Text style={styles.icon}>🔋</Text>
+        <Text style={styles.icon}>💪</Text>
       </View>
       <View style={styles.content}>
         <Text style={styles.title}>Recovery Day</Text>
@@ -25,19 +25,28 @@ export const RecoveryCard: React.FC<RecoveryCardProps> = ({ visible, nextTrainin
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: palette.warningSoft,
-    padding: spacing.lg,
-    borderRadius: radius.inner,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: palette.bgCard,
+    padding: spacing.md,
+    borderRadius: radius.md,
     marginBottom: spacing.cardGap,
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
+    gap: 12,
   },
   iconWrap: {
-    width: 36, height: 36, borderRadius: radius.icon,
-    backgroundColor: palette.primary,
-    alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: palette.bgElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.borderSubtle,
   },
   icon: { fontSize: 18 },
-  content: { flex: 1, marginLeft: spacing.innerMd },
-  title: { ...fonts.cardTitle, color: palette.white },
-  text: { ...fonts.body, color: palette.textOnDark, marginTop: 2, opacity: 0.8 },
+  content: { flex: 1 },
+  title: { ...fonts.h3, color: palette.primary },
+  text: { ...fonts.body, color: palette.textSecondary, marginTop: 4, fontSize: 13 },
 });

@@ -59,10 +59,10 @@ const WorkoutProgressBar = ({ progress, current, total }: { progress: number; cu
 };
 
 const progressStyles = StyleSheet.create({
-  container: { paddingHorizontal: spacing.screenPadding, paddingVertical: spacing.sm },
-  barBg: { height: 6, backgroundColor: palette.primaryLight, borderRadius: 3, overflow: 'hidden' },
+  container: { paddingHorizontal: spacing.screenPadding, paddingVertical: spacing.md },
+  barBg: { height: 6, backgroundColor: palette.bgInner, borderRadius: 3, overflow: 'hidden' },
   barFill: { height: 6, backgroundColor: palette.primary, borderRadius: 3 },
-  label: { ...fonts.caption, color: palette.textSecondary, textAlign: 'center', marginTop: 6 },
+  label: { ...fonts.label, color: palette.textSecondary, textAlign: 'center', marginTop: 8, textTransform: 'uppercase', fontSize: 10 },
 });
 
 // ─── Exercise Header ───────────────────────────
@@ -82,7 +82,6 @@ const ExerciseHeader = ({ name, category, targetSets, targetReps, targetDuration
       {targetSets} sets × {targetReps || targetDuration || '—'}
     </Text>
     <TouchableOpacity style={headerStyles.guideBtn} onPress={onGuidePress} activeOpacity={0.7}>
-      <Text style={headerStyles.guideIcon}>ℹ️</Text>
       <Text style={headerStyles.guideText}>Exercise Guide</Text>
     </TouchableOpacity>
   </View>
@@ -90,18 +89,17 @@ const ExerciseHeader = ({ name, category, targetSets, targetReps, targetDuration
 
 const headerStyles = StyleSheet.create({
   container: { alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.screenPadding },
-  name: { ...fonts.programDayTitle, color: palette.textPrimary, textAlign: 'center', marginBottom: 8 },
-  tagRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  tag: { backgroundColor: palette.primaryLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: radius.pill },
-  tagText: { ...fonts.badge, color: palette.primary },
-  target: { ...fonts.body, color: palette.textSecondary, marginBottom: 10 },
+  name: { ...fonts.h1, color: palette.textPrimary, textAlign: 'center', marginBottom: 12 },
+  tagRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  tag: { backgroundColor: palette.bgInner, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: palette.borderLight },
+  tagText: { ...fonts.label, color: palette.primary, fontSize: 10, fontWeight: '700' },
+  target: { ...fonts.body, color: palette.textSecondary, marginBottom: 16 },
   guideBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingVertical: 8, paddingHorizontal: 16,
-    backgroundColor: palette.primarySoft, borderRadius: radius.pill,
+    backgroundColor: palette.bgElevated, borderRadius: 8,
+    borderWidth: 1, borderColor: palette.borderLight,
   },
-  guideIcon: { fontSize: 16 },
-  guideText: { ...fonts.label, color: palette.primary },
+  guideText: { ...fonts.label, color: palette.textPrimary, fontWeight: '600' },
 });
 
 // ─── Rest Timer Overlay (with next exercise preview) ─────
@@ -114,7 +112,7 @@ const RestTimerOverlay = ({ display, onSkip, nextExercise }: {
   useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.08, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       ])
     );
@@ -122,8 +120,6 @@ const RestTimerOverlay = ({ display, onSkip, nextExercise }: {
     return () => pulse.stop();
   }, [pulseAnim]);
 
-  // Haptic when timer hits 0 is handled wherever timer state is checked,
-  // but let's just do a simple mount haptic here as well
   useEffect(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, []);
@@ -131,15 +127,14 @@ const RestTimerOverlay = ({ display, onSkip, nextExercise }: {
   return (
     <View style={restStyles.overlay}>
       <Animated.View style={[restStyles.timerCircle, { transform: [{ scale: pulseAnim }] }]}>
-        <Text style={restStyles.emoji}>⏱️</Text>
         <Text style={restStyles.time}>{display}</Text>
-        <Text style={restStyles.restLabel}>REST</Text>
+        <Text style={restStyles.restLabel}>RESTING</Text>
       </Animated.View>
 
       {/* Next Exercise Preview */}
       {nextExercise && (
         <View style={restStyles.nextPreview}>
-          <Text style={restStyles.nextTitle}>Up Next</Text>
+          <Text style={restStyles.nextTitle}>UP NEXT</Text>
           <Text style={restStyles.nextName}>{nextExercise.name}</Text>
           <Text style={restStyles.nextDetail}>
             {nextExercise.targetSets} × {nextExercise.targetReps || nextExercise.targetDuration || '—'}
@@ -160,29 +155,31 @@ const RestTimerOverlay = ({ display, onSkip, nextExercise }: {
 const restStyles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
     justifyContent: 'center', alignItems: 'center', zIndex: 100,
   },
   timerCircle: {
-    width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
-    borderWidth: 3, borderColor: palette.primary,
+    width: 200, height: 200, borderRadius: 100,
+    backgroundColor: palette.bgCard,
+    borderWidth: 2, borderColor: palette.primary,
     justifyContent: 'center', alignItems: 'center',
+    shadowColor: palette.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 20,
   },
-  emoji: { fontSize: 28, marginBottom: 4 },
-  time: { ...fonts.heroNumber, color: palette.white, fontSize: 42 },
-  restLabel: { ...fonts.label, color: palette.textOnDarkMuted, marginTop: 2 },
+  time: { ...fonts.stat, color: palette.white, fontSize: 56 },
+  restLabel: { ...fonts.label, color: palette.textSecondary, marginTop: 4, letterSpacing: 2 },
   nextPreview: {
-    marginTop: 28, alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: radius.card,
-    paddingVertical: 16, paddingHorizontal: 24, minWidth: 220,
+    marginTop: 40, alignItems: 'center',
+    backgroundColor: palette.bgCard, borderRadius: radius.lg,
+    paddingVertical: 20, paddingHorizontal: 32, minWidth: 260,
+    borderWidth: 1, borderColor: palette.borderSubtle,
   },
-  nextTitle: { ...fonts.badge, color: palette.textOnDarkMuted, marginBottom: 6, letterSpacing: 1 },
-  nextName: { ...fonts.cardTitle, color: palette.white, marginBottom: 4, textAlign: 'center' },
-  nextDetail: { ...fonts.caption, color: palette.textOnDarkMuted },
+  nextTitle: { ...fonts.label, color: palette.primary, marginBottom: 8, letterSpacing: 1.5, fontWeight: '700', fontSize: 10 },
+  nextName: { ...fonts.h3, color: palette.white, marginBottom: 4, textAlign: 'center' },
+  nextDetail: { ...fonts.body, color: palette.textSecondary, fontSize: 13 },
   skipBtn: {
-    marginTop: 24, paddingVertical: 14, paddingHorizontal: 32,
-    backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.pill,
+    marginTop: 32, paddingVertical: 14, paddingHorizontal: 32,
+    backgroundColor: palette.bgElevated, borderRadius: 12,
+    borderWidth: 1, borderColor: palette.borderLight,
   },
   skipText: { ...fonts.button, color: palette.white },
 });
@@ -209,20 +206,20 @@ const ExerciseGuideModal = ({ visible, onClose, exerciseId }: {
           <ScrollView showsVerticalScrollIndicator={false} style={guideStyles.scroll}>
             {data?.primaryMuscle && (
               <View style={guideStyles.muscleRow}>
-                <Text style={guideStyles.muscleLabel}>🎯 Primary Muscle</Text>
+                <Text style={guideStyles.muscleLabel}>TARGET</Text>
                 <View style={guideStyles.muscleTag}>
-                  <Text style={guideStyles.muscleTagText}>{data.primaryMuscle}</Text>
+                  <Text style={guideStyles.muscleTagText}>{data.primaryMuscle.toUpperCase()}</Text>
                 </View>
               </View>
             )}
 
             {data?.steps && data.steps.length > 0 && (
               <>
-                <Text style={guideStyles.sectionTitle}>How to Perform</Text>
+                <Text style={guideStyles.sectionTitle}>Instructions</Text>
                 <View style={guideStyles.stepsWrap}>
                   {data.steps.map((step, i) => (
                     <View key={i} style={guideStyles.stepRow}>
-                      <Text style={guideStyles.stepNum}>{i + 1}.</Text>
+                      <Text style={guideStyles.stepNum}>{i + 1}</Text>
                       <Text style={guideStyles.stepText}>{step}</Text>
                     </View>
                   ))}
@@ -235,37 +232,17 @@ const ExerciseGuideModal = ({ visible, onClose, exerciseId }: {
                 <Text style={guideStyles.sectionTitle}>Form Cues</Text>
                 {data.formCues.map((cue, i) => (
                   <View key={i} style={guideStyles.tipBox}>
-                    <Text style={guideStyles.tipIcon}>💡</Text>
                     <Text style={guideStyles.tipText}>{cue}</Text>
                   </View>
                 ))}
               </>
             )}
 
-            {data?.commonMistakes && data.commonMistakes.length > 0 && (
-              <>
-                <Text style={guideStyles.sectionTitle}>Common Mistakes</Text>
-                {data.commonMistakes.map((mistake, i) => (
-                  <View key={i} style={guideStyles.mistakeBox}>
-                    <Text style={guideStyles.mistakeIcon}>⚠️</Text>
-                    <Text style={guideStyles.mistakeText}>{mistake}</Text>
-                  </View>
-                ))}
-              </>
-            )}
-
-            {data?.beginnerLoadTip && (
-              <View style={guideStyles.loadTipBox}>
-                <Text style={guideStyles.loadTipIcon}>🏋️</Text>
-                <Text style={guideStyles.loadTipText}>{data.beginnerLoadTip}</Text>
-              </View>
-            )}
-
             {!data && (
               <View style={guideStyles.noData}>
-                <Text style={guideStyles.noDataEmoji}>📝</Text>
-                <Text style={guideStyles.noDataText}>No exercise instructions available yet.</Text>
-                <Text style={guideStyles.noDataSub}>Focus on controlled form and full range of motion.</Text>
+                <Text style={guideStyles.noDataEmoji}>💪</Text>
+                <Text style={guideStyles.noDataText}>No detailed guide available.</Text>
+                <Text style={guideStyles.noDataSub}>Focus on slow, controlled movements.</Text>
               </View>
             )}
           </ScrollView>
@@ -276,47 +253,35 @@ const ExerciseGuideModal = ({ visible, onClose, exerciseId }: {
 };
 
 const guideStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: palette.bgPrimary, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card,
-    minHeight: '50%', maxHeight: '80%', padding: spacing.screenPadding, ...shadows.level2,
+    backgroundColor: palette.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    minHeight: '60%', maxHeight: '85%', paddingHorizontal: spacing.screenPadding,
+    borderWidth: 1, borderColor: palette.borderSubtle, borderBottomWidth: 0,
   },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: palette.borderSubtle, alignSelf: 'center', marginBottom: spacing.lg },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
-  title: { ...fonts.screenTitle, color: palette.textPrimary, flex: 1 },
-  closeBtn: { fontSize: 24, color: palette.textMuted },
-  scroll: { flexGrow: 1 },
-  muscleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.xl },
-  muscleLabel: { ...fonts.label, color: palette.textSecondary },
-  muscleTag: { backgroundColor: palette.primaryLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: radius.pill },
-  muscleTagText: { ...fonts.badge, color: palette.primary },
-  sectionTitle: { ...fonts.sectionHeader, color: palette.textPrimary, marginTop: spacing.lg, marginBottom: spacing.sm },
-  stepsWrap: { gap: spacing.sm },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: palette.bgInner, alignSelf: 'center', marginVertical: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  title: { ...fonts.h2, color: palette.textPrimary, flex: 1 },
+  closeBtn: { fontSize: 24, color: palette.textSecondary },
+  scroll: { flexGrow: 1, paddingBottom: 40 },
+  muscleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
+  muscleLabel: { ...fonts.label, color: palette.textMuted, letterSpacing: 1 },
+  muscleTag: { backgroundColor: palette.bgInner, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: palette.borderLight },
+  muscleTagText: { ...fonts.label, color: palette.primary, fontSize: 11, fontWeight: '700' },
+  sectionTitle: { ...fonts.label, color: palette.textSecondary, marginTop: 32, marginBottom: 16, letterSpacing: 1.5, textTransform: 'uppercase' },
+  stepsWrap: { gap: 16 },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  stepNum: { ...fonts.body, color: palette.primary, marginRight: spacing.sm, width: 22, fontWeight: '600' },
-  stepText: { ...fonts.body, color: palette.textSecondary, flex: 1, lineHeight: 22 },
+  stepNum: { ...fonts.label, color: palette.primary, marginRight: 16, marginTop: 2, width: 24, height: 24, borderRadius: 12, backgroundColor: palette.bgInner, textAlign: 'center', textAlignVertical: 'center', lineHeight: 24 },
+  stepText: { ...fonts.body, color: palette.textSecondary, flex: 1, lineHeight: 24 },
   tipBox: {
-    backgroundColor: palette.primarySoft, padding: spacing.innerMd, borderRadius: radius.sm,
-    flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm,
+    backgroundColor: palette.bgInner, padding: 16, borderRadius: 12,
+    marginBottom: 10, borderWidth: 1, borderColor: palette.borderLight,
   },
-  tipIcon: { fontSize: 16, marginRight: spacing.sm },
-  tipText: { ...fonts.body, color: palette.primary, flex: 1, lineHeight: 22 },
-  mistakeBox: {
-    backgroundColor: palette.warningSoft, padding: spacing.innerMd, borderRadius: radius.sm,
-    flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm,
-  },
-  mistakeIcon: { fontSize: 16, marginRight: spacing.sm },
-  mistakeText: { ...fonts.body, color: '#92400E', flex: 1, lineHeight: 22 },
-  loadTipBox: {
-    backgroundColor: palette.successSoft, padding: spacing.cardPadding, borderRadius: radius.card,
-    flexDirection: 'row', alignItems: 'flex-start', marginTop: spacing.lg,
-  },
-  loadTipIcon: { fontSize: 20, marginRight: spacing.sm },
-  loadTipText: { ...fonts.body, color: palette.success, flex: 1, lineHeight: 22 },
-  noData: { paddingVertical: spacing['3xl'], alignItems: 'center' },
+  tipText: { ...fonts.body, color: palette.textPrimary, lineHeight: 22 },
+  noData: { paddingVertical: 60, alignItems: 'center' },
   noDataEmoji: { fontSize: 40, marginBottom: 12 },
-  noDataText: { ...fonts.cardTitle, color: palette.textSecondary, marginBottom: 4 },
-  noDataSub: { ...fonts.caption, color: palette.textMuted, textAlign: 'center' },
+  noDataText: { ...fonts.h3, color: palette.textSecondary, marginBottom: 8 },
+  noDataSub: { ...fonts.body, color: palette.textMuted, textAlign: 'center' },
 });
 
 // ─── Exercise Replacement Modal ────────────────
@@ -376,26 +341,27 @@ const ExerciseReplacementModal = ({ visible, onClose, currentExerciseName, onSel
 };
 
 const replaceStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: palette.bgPrimary, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card,
+    backgroundColor: '#141414', borderTopLeftRadius: 24, borderTopRightRadius: 24,
     minHeight: '50%', maxHeight: '75%', padding: spacing.screenPadding, ...shadows.level2,
   },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: palette.borderSubtle, alignSelf: 'center', marginBottom: spacing.lg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  title: { ...fonts.screenTitle, color: palette.textPrimary },
+  title: { ...fonts.screenTitle, color: '#FFFFFF' },
   closeBtn: { fontSize: 24, color: palette.textMuted },
-  subtitle: { ...fonts.caption, color: palette.textSecondary, marginBottom: spacing.lg },
+  subtitle: { ...fonts.caption, color: '#9A9A9A', marginBottom: spacing.lg },
   scroll: { flexGrow: 1 },
   exRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: palette.white, borderRadius: radius.sm, padding: 14,
-    marginBottom: 8, ...shadows.card,
+    backgroundColor: '#1C1C1C', borderRadius: 12, 
+    paddingVertical: 14, paddingHorizontal: 16,
+    marginBottom: 12, ...shadows.card,
   },
   exInfo: { flex: 1 },
-  exName: { ...fonts.cardTitle, color: palette.textPrimary, marginBottom: 2 },
-  exMeta: { ...fonts.caption, color: palette.textSecondary },
-  exArrow: { ...fonts.cardValue, color: palette.primary, paddingLeft: 12 },
+  exName: { ...fonts.cardTitle, color: '#FFFFFF', marginBottom: 2 },
+  exMeta: { ...fonts.caption, color: '#9A9A9A' },
+  exArrow: { ...fonts.cardValue, color: '#FF3B30', paddingLeft: 12 },
   noAlt: { ...fonts.body, color: palette.textMuted, textAlign: 'center', paddingVertical: 24 },
 });
 
@@ -674,7 +640,7 @@ export const WorkoutModeScreen = () => {
 
       {/* Header */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={handleExit} hitSlop={12} style={styles.exitWrap}>
+        <TouchableOpacity onPress={handleExit} hitSlop={20} style={styles.exitWrap}>
           <Text style={styles.exitBtn}>← Exit</Text>
         </TouchableOpacity>
         <Text style={styles.elapsed}>⏱ {elapsed}</Text>
@@ -810,7 +776,7 @@ export const WorkoutModeScreen = () => {
           {!isCurrentExerciseComplete && (
             <View style={styles.skipReplaceRow}>
               <TouchableOpacity style={styles.replaceExBtn} onPress={() => setReplaceVisible(true)} activeOpacity={0.7}>
-                <Text style={styles.replaceExBtnText}>🔄 Replace</Text>
+                <Text style={styles.replaceExBtnText}>💪 Replace</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.skipExBtn} onPress={handleSkipExercise} activeOpacity={0.7}>
                 <Text style={styles.skipExBtnText}>Skip Exercise</Text>
@@ -820,7 +786,7 @@ export const WorkoutModeScreen = () => {
 
           {(isWorkoutComplete || (isCurrentExerciseComplete && isLastExercise)) && (
             <TouchableOpacity style={styles.finishBtn} onPress={handleFinish} activeOpacity={0.7}>
-              <Text style={styles.finishBtnText}>🎉 Finish Workout</Text>
+              <Text style={styles.finishBtnText}>🏆 Finish Workout</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -834,56 +800,71 @@ export const WorkoutModeScreen = () => {
 // ═══════════════════════════════════════════════
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.bgPrimary },
+  screen: { flex: 1, backgroundColor: palette.bgBase },
   center: { justifyContent: 'center', alignItems: 'center' },
-  emptyText: { ...fonts.body, color: palette.textMuted, textAlign: 'center' },
-  backBtn: { marginTop: 16, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: palette.primary, borderRadius: radius.sm },
-  backBtnText: { ...fonts.button, color: palette.white },
+  emptyText: { ...fonts.body, color: palette.textMuted },
+  backBtn: { marginTop: 16, padding: 12 },
+  backBtnText: { ...fonts.button, color: palette.primary },
+
   topBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: spacing.screenPadding, paddingTop: spacing.md, paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.screenPadding, paddingVertical: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: palette.borderSubtle,marginTop: 25
   },
-  exitWrap: { minWidth: 60 },
-  exitBtn: { ...fonts.body, color: palette.danger, fontWeight: '600' },
-  elapsed: { ...fonts.tabular, color: palette.textSecondary },
+  exitWrap: { padding: 8 },
+  exitBtn: { ...fonts.label, color: palette.textSecondary, fontWeight: '700' },
+  elapsed: { ...fonts.stat, fontSize: 26, color: palette.primary },
+
   scrollArea: { flex: 1 },
   scrollContent: { paddingBottom: 100 },
+
+  historyBox: {
+    marginHorizontal: spacing.screenPadding, marginBottom: spacing.lg,
+    padding: 12, borderRadius: 12, backgroundColor: palette.bgInner,
+    borderWidth: 1, borderColor: palette.borderLight, alignItems: 'center',
+  },
+  historyText: { ...fonts.label, color: palette.textSecondary, fontSize: 11 },
+
   setsContainer: { paddingHorizontal: spacing.screenPadding, gap: 12 },
+  setCard: {
+    backgroundColor: palette.bgCard, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: palette.borderSubtle,
+  },
+  setCardActive: { borderColor: palette.primary, borderWidth: 2 },
+  setCardDone: { opacity: 0.8 },
+  setCardEditing: { borderColor: palette.info, borderWidth: 1.5 },
+  setCardUpcoming: { opacity: 0.4 },
 
-  // Set cards
-  setCard: { backgroundColor: palette.white, borderRadius: radius.card, padding: spacing.cardPadding, ...shadows.card },
-  setCardActive: { borderWidth: 2, borderColor: palette.primary, ...shadows.focus },
-  setCardDone: { backgroundColor: palette.successLight, opacity: 0.9 },
-  setCardEditing: { borderWidth: 2, borderColor: palette.accentAmber, backgroundColor: palette.warningLight },
-  setCardUpcoming: { opacity: 0.5 },
-  setHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  setLabel: { ...fonts.cardTitle, color: palette.textSecondary },
-  setLabelDone: { color: palette.success },
-  checkMark: { fontSize: 18 },
-  currentDot: { ...fonts.badge, color: palette.primary },
-  editingDot: { ...fonts.badge, color: palette.accentAmber },
+  setHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  setLabel: { ...fonts.label, color: palette.textSecondary, textTransform: 'uppercase', fontSize: 10, letterSpacing: 1 },
+  setLabelDone: { color: palette.textMuted },
+  checkMark: { fontSize: 16 },
+  currentDot: { ...fonts.label, color: palette.primary, fontWeight: '800', fontSize: 10 },
+  editingDot: { ...fonts.label, color: palette.info, fontWeight: '800', fontSize: 10 },
 
-  completedInfo: { ...fonts.body, color: palette.success },
-  tapToEdit: { ...fonts.caption, color: palette.textMuted, marginTop: 4, fontStyle: 'italic' },
+  completedInfo: { ...fonts.stat, fontSize: 20, color: palette.textPrimary, marginBottom: 4 },
+  tapToEdit: { ...fonts.label, color: palette.textMuted, fontSize: 10 },
 
-  historyBox: { backgroundColor: palette.primarySoft, paddingVertical: 10, paddingHorizontal: 16, borderRadius: radius.card, marginHorizontal: spacing.screenPadding, marginBottom: 12, alignItems: 'center', borderWidth: 1, borderColor: palette.primary + '30' },
-  historyText: { ...fonts.label, color: palette.primary, fontWeight: '600' },
-
-  // Inputs
-  inputArea: { gap: 12 },
+  inputArea: { gap: 16 },
   inputRow: { flexDirection: 'row', gap: 12 },
   inputGroup: { flex: 1 },
-  inputLabel: { ...fonts.label, color: palette.textSecondary, marginBottom: 4 },
-  input: { backgroundColor: palette.inputBackground, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 12, ...fonts.cardValue, color: palette.textPrimary },
-  completeSetBtn: { backgroundColor: palette.primary, borderRadius: radius.sm, paddingVertical: 14, alignItems: 'center', ...shadows.button },
-  completeSetText: { ...fonts.button, color: palette.white },
+  inputLabel: { ...fonts.label, color: palette.textSecondary, marginBottom: 8, fontSize: 10, textTransform: 'uppercase' },
+  input: {
+    backgroundColor: palette.bgInner, borderRadius: 12, padding: 14,
+    ...fonts.h3, color: palette.textPrimary, borderWidth: 1, borderColor: palette.borderLight,
+    textAlign: 'center',
+  },
+  completeSetBtn: {
+    backgroundColor: palette.primary, borderRadius: 12, paddingVertical: 16,
+    alignItems: 'center',
+  },
+  completeSetText: { ...fonts.button, color: palette.white, fontWeight: '800' },
 
-  // Edit buttons
-  editBtnRow: { flexDirection: 'row', gap: 12 },
-  saveEditBtn: { flex: 1, backgroundColor: palette.success, borderRadius: radius.sm, paddingVertical: 12, alignItems: 'center' },
-  saveEditText: { ...fonts.button, color: palette.white },
-  cancelEditBtn: { flex: 1, backgroundColor: palette.bgSecondary, borderRadius: radius.sm, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
-  cancelEditText: { ...fonts.button, color: palette.textSecondary },
+  editBtnRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  saveEditBtn: { flex: 2, backgroundColor: palette.info, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  saveEditText: { ...fonts.button, color: palette.white, fontSize: 14 },
+  cancelEditBtn: { flex: 1, backgroundColor: palette.bgInner, borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: palette.borderLight },
+  cancelEditText: { ...fonts.label, color: palette.textSecondary, fontSize: 14 },
 
   // Navigation
   navArea: { paddingHorizontal: spacing.screenPadding, paddingTop: 24, gap: 12 },

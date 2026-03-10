@@ -47,7 +47,7 @@ export const AppContainer: React.FC<AppContainerProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.background },
+  container: { flex: 1, backgroundColor: palette.bgBase },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   inner: { flex: 1 },

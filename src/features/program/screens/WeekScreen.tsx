@@ -7,7 +7,7 @@ import { GreetingHeader } from '../../../core/components/GreetingHeader';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 import { useLayoutTokens } from '../../../core/theme/layout';
 
-const FOCUS_ICONS: Record<string, string> = { strength: '💪', cardio: '🏃', mobility: '🧘', rest: '😴' };
+const FOCUS_ICONS: Record<string, string> = { strength: '💪', cardio: '💪', mobility: '💪', rest: 'REST' };
 
 export const WeekScreen = () => {
   const { state: programState, isLoading } = useProgramState();
@@ -22,6 +22,7 @@ export const WeekScreen = () => {
 
   return (
     <ScrollView
+      style={styles.screen}
       contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
       showsVerticalScrollIndicator={false}
     >
@@ -82,41 +83,41 @@ export const WeekScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.bgPrimary },
+  screen: { flex: 1, backgroundColor: '#0A0A0A' },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: spacing.screenPadding, paddingTop: 56 },
+  content: { padding: spacing.screenPadding, paddingTop: 40 },
   
-  header: { marginBottom: spacing.innerSm },
-  caption: { ...fonts.badge, color: palette.primary, marginBottom: spacing.xs },
-  title: { ...fonts.screenTitle, color: palette.textPrimary },
-  meta: { ...fonts.label, color: palette.textMuted, marginTop: spacing.innerSm },
+  header: { marginBottom: spacing.xxl },
+  caption: { ...fonts.label, color: palette.primary, marginBottom: spacing.xs, textTransform: 'uppercase' },
+  title: { ...fonts.h1, color: palette.textPrimary },
+  meta: { ...fonts.body, color: palette.textSecondary, marginTop: spacing.xs },
 
   // Timeline
   tlItem: { flexDirection: 'row', minHeight: 92 },
-  tlTrack: { width: 28, alignItems: 'center', paddingTop: 22 },
-  tlDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: palette.borderSubtle, zIndex: 1 },
-  dotDone: { backgroundColor: palette.success },
-  dotToday: { backgroundColor: palette.primary, width: 12, height: 12, borderRadius: 6 },
-  dotFuture: { backgroundColor: 'rgba(148,163,184,0.2)' },
-  dotMissed: { backgroundColor: palette.danger },
-  tlLine: { width: 1.5, flex: 1, backgroundColor: 'rgba(148,163,184,0.15)', marginTop: -1 },
-  lineDone: { backgroundColor: 'rgba(22,163,74,0.15)' },
-  lineMissed: { backgroundColor: 'rgba(239,68,68,0.15)' },
+  tlTrack: { width: 28, alignItems: 'center', paddingTop: 26 },
+  tlDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.bgInner, zIndex: 1, borderWidth: 1, borderColor: palette.borderLight },
+  dotDone: { backgroundColor: palette.success, borderColor: palette.successSubtle },
+  dotToday: { backgroundColor: palette.primary, width: 12, height: 12, borderRadius: 6, borderColor: palette.primaryGlow, borderWidth: 2 },
+  dotFuture: { backgroundColor: palette.bgInner, opacity: 0.5 },
+  dotMissed: { backgroundColor: palette.danger, borderColor: palette.dangerSubtle },
+  tlLine: { width: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: -2 },
+  lineDone: { backgroundColor: 'rgba(34, 197, 94, 0.3)' },
+  lineMissed: { backgroundColor: 'rgba(239, 68, 68, 0.3)' },
 
   dayCard: {
-    flex: 1, backgroundColor: palette.bgSecondary,
-    borderRadius: radius.card, padding: spacing.cardPadding,
-    marginBottom: spacing.cardGap, marginLeft: spacing.innerSm,
-    ...shadows.level1,
+    flex: 1, backgroundColor: '#141414',
+    borderRadius: radius.lg, padding: 16,
+    marginBottom: spacing.cardGap, marginLeft: spacing.md,
+    borderWidth: 1, borderColor: palette.borderSubtle,
   },
-  dayDone: { backgroundColor: palette.successSoft },
-  dayToday: { backgroundColor: palette.bgElevated, ...shadows.focus },
-  dayFuture: { opacity: 0.45 },
-  dayMissed: { backgroundColor: palette.dangerSoft },
-  dayHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
-  dayLabel: { ...fonts.caption, color: palette.textMuted },
-  dayLabelToday: { color: palette.primary },
-  dayTitle: { ...fonts.cardTitle, color: palette.textPrimary, marginTop: spacing.xs },
-  dayTitleFuture: { color: palette.textMuted },
-  dayFocus: { ...fonts.caption, color: palette.textMuted, marginTop: 2, textTransform: 'uppercase' },
+  dayDone: { borderColor: palette.successSubtle },
+  dayToday: { borderColor: palette.primary, backgroundColor: palette.bgElevated, ...shadows.glow },
+  dayFuture: { opacity: 0.4 },
+  dayMissed: { borderColor: palette.dangerSubtle },
+  dayHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 4 },
+  dayLabel: { ...fonts.label, color: palette.textSecondary, textTransform: 'uppercase', fontSize: 10 },
+  dayLabelToday: { color: palette.primary, fontWeight: '700' },
+  dayTitle: { ...fonts.h3, color: palette.textPrimary, marginTop: 4 },
+  dayTitleFuture: { color: palette.textSecondary },
+  dayFocus: { ...fonts.label, color: palette.textMuted, marginTop: 6, textTransform: 'uppercase', fontSize: 9, letterSpacing: 0.5 },
 });

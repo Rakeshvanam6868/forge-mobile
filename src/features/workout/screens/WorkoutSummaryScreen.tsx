@@ -31,13 +31,13 @@ const StatBox = ({ emoji, value, label }: { emoji: string; value: string | numbe
 
 const statStyles = StyleSheet.create({
   box: {
-    flex: 1, backgroundColor: palette.white, borderRadius: radius.card,
-    padding: spacing.cardPadding, alignItems: 'center', justifyContent: 'center',
-    minHeight: 110, ...shadows.card,
+    flex: 1, backgroundColor: palette.bgCard, borderRadius: 16,
+    padding: 16, alignItems: 'center', justifyContent: 'center',
+    minHeight: 110, borderWidth: 1, borderColor: palette.borderSubtle,
   },
-  emoji: { fontSize: 28, marginBottom: 6 },
-  value: { ...fonts.statValue, color: palette.textPrimary },
-  label: { ...fonts.statLabel, color: palette.textSecondary, marginTop: 2, textAlign: 'center' },
+  emoji: { fontSize: 24, marginBottom: 8 },
+  value: { ...fonts.stat, fontSize: 22, color: palette.textPrimary },
+  label: { ...fonts.label, color: palette.textSecondary, marginTop: 4, textAlign: 'center', textTransform: 'uppercase', fontSize: 9, letterSpacing: 0.5 },
 });
 
 // ─── Energy Selector ────────────────────────────
@@ -93,18 +93,18 @@ const DifficultySelector = ({ value, onChange }: { value: Difficulty | null; onC
 );
 
 const fbStyles = StyleSheet.create({
-  section: { marginBottom: spacing.lg },
-  sectionTitle: { ...fonts.sectionHeader, color: palette.textPrimary, marginBottom: 12 },
-  optionRow: { flexDirection: 'row', gap: 12 },
+  section: { marginBottom: spacing.xl },
+  sectionTitle: { ...fonts.label, color: palette.textSecondary, marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
+  optionRow: { flexDirection: 'row', gap: 10 },
   optionBtn: {
-    flex: 1, backgroundColor: palette.white, borderRadius: radius.card,
-    paddingVertical: 16, alignItems: 'center', borderWidth: 2,
-    borderColor: 'transparent', ...shadows.card,
+    flex: 1, backgroundColor: palette.bgCard, borderRadius: 12,
+    paddingVertical: 16, alignItems: 'center', borderWidth: 1,
+    borderColor: palette.borderSubtle,
   },
-  optionBtnActive: { borderColor: palette.primary, backgroundColor: palette.primarySoft },
-  optionEmoji: { fontSize: 28, marginBottom: 4 },
-  optionLabel: { ...fonts.label, color: palette.textSecondary },
-  optionLabelActive: { color: palette.primary, fontWeight: '700' },
+  optionBtnActive: { borderColor: palette.primary, backgroundColor: palette.bgElevated },
+  optionEmoji: { fontSize: 28, marginBottom: 8 },
+  optionLabel: { ...fonts.label, color: palette.textSecondary, fontSize: 11, fontWeight: '700' },
+  optionLabelActive: { color: palette.primary },
 });
 
 // ═══════════════════════════════════════════════
@@ -275,7 +275,7 @@ export const WorkoutSummaryScreen = () => {
       queryClient.invalidateQueries({ queryKey: ['exerciseHistory'] });
       queryClient.invalidateQueries({ queryKey: ['energyTrend'] });
       clearSession();
-      navigation.reset({ index: 0, routes: [{ name: 'AppTabs' }] });
+      navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
     }
   });
 
@@ -306,10 +306,10 @@ export const WorkoutSummaryScreen = () => {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={palette.bgPrimary} />
+      <StatusBar barStyle="light-content" backgroundColor={palette.bgBase} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.celebEmoji}>🎉</Text>
+          <Text style={styles.celebEmoji}>🏆</Text>
           <Text style={styles.title}>Workout Complete!</Text>
           <Text style={styles.subtitle}>Great job pushing through. Here's your session summary.</Text>
         </View>
@@ -386,46 +386,47 @@ export const WorkoutSummaryScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.bgPrimary },
+  screen: { flex: 1, backgroundColor: palette.bgBase },
   center: { justifyContent: 'center', alignItems: 'center' },
   emptyText: { ...fonts.body, color: palette.textMuted },
-  content: { padding: spacing.screenPadding, paddingBottom: 60 },
-  header: { alignItems: 'center', paddingVertical: spacing['3xl'] },
-  celebEmoji: { fontSize: 56, marginBottom: 12 },
-  title: { ...fonts.programDayTitle, color: palette.textPrimary, marginBottom: 8 },
-  subtitle: { ...fonts.body, color: palette.textSecondary, textAlign: 'center', maxWidth: 280 },
+  content: { padding: spacing.screenPadding, paddingBottom: 80, paddingTop: 40 },
+  header: { alignItems: 'center', marginBottom: 40 },
+  celebEmoji: { fontSize: 64, marginBottom: 16 },
+  title: { ...fonts.h1, color: palette.textPrimary, marginBottom: 12, textAlign: 'center' },
+  subtitle: { ...fonts.body, color: palette.textSecondary, textAlign: 'center', maxWidth: 300, lineHeight: 22 },
 
   // PR Banner
   prBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: palette.warningLight, borderRadius: radius.card,
-    paddingVertical: 14, paddingHorizontal: 20, marginBottom: spacing.lg,
-    borderWidth: 1, borderColor: palette.warning + '40',
+    backgroundColor: palette.bgCard, borderRadius: 16,
+    paddingVertical: 16, paddingHorizontal: 20, marginBottom: 32,
+    borderWidth: 1, borderColor: palette.accentAmber,
+    shadowColor: palette.accentAmber, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 10,
   },
-  prBannerEmoji: { fontSize: 24, marginRight: 8 },
-  prBannerText: { ...fonts.sectionHeader, color: '#92400E' },
+  prBannerEmoji: { fontSize: 24, marginRight: 12 },
+  prBannerText: { ...fonts.h3, color: palette.accentAmber, fontWeight: '800' },
 
-  statsGrid: { gap: 12, marginBottom: spacing.sectionGap },
+  statsGrid: { gap: 12, marginBottom: 48 },
   statsRow: { flexDirection: 'row', gap: 12 },
-  breakdown: { marginBottom: spacing.sectionGap },
-  sectionTitle: { ...fonts.sectionHeader, color: palette.textPrimary, marginBottom: 12 },
+  breakdown: { marginBottom: 48 },
+  sectionTitle: { ...fonts.label, color: palette.textSecondary, marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
   exRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: palette.white, borderRadius: radius.sm, padding: 14,
-    marginBottom: 8, ...shadows.card,
+    backgroundColor: palette.bgCard, borderRadius: 12, padding: 16,
+    marginBottom: 10, borderWidth: 1, borderColor: palette.borderSubtle,
   },
-  exRowSkipped: { backgroundColor: palette.bgSecondary, opacity: 0.7 },
+  exRowSkipped: { opacity: 0.5, borderStyle: 'dashed' },
   exInfo: { flex: 1 },
-  exNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  exName: { ...fonts.cardTitle, color: palette.textPrimary },
+  exNameRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  exName: { ...fonts.h3, color: palette.textPrimary },
   textSkipped: { color: palette.textMuted },
-  exSets: { ...fonts.caption, color: palette.textSecondary },
+  exSets: { ...fonts.label, color: palette.textSecondary, fontSize: 11 },
   exBadgeText: { fontSize: 18, paddingLeft: 12 },
-  prBadge: { ...fonts.badge, color: palette.warning, backgroundColor: palette.warningLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, overflow: 'hidden' },
+  prBadge: { ...fonts.label, color: palette.accentAmber, backgroundColor: 'rgba(255, 184, 0, 0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', fontSize: 10, fontWeight: '800', borderWidth: 1, borderColor: 'rgba(255, 184, 0, 0.2)' },
 
   // Feedback
-  feedbackSection: { marginBottom: spacing.sectionGap },
+  feedbackSection: { marginBottom: 48 },
 
-  doneBtn: { backgroundColor: palette.primary, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', ...shadows.button },
-  doneBtnText: { ...fonts.button, color: palette.white },
+  doneBtn: { backgroundColor: palette.primary, borderRadius: 12, paddingVertical: 18, alignItems: 'center', shadowColor: palette.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  doneBtnText: { ...fonts.button, color: palette.white, fontWeight: '800', fontSize: 16 },
 });

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
-import { palette, fonts, spacing, radius } from '../../core/theme/designTokens';
+import { palette, fonts, spacing, radius, shadows } from '../../core/theme/designTokens';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -138,23 +138,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
+    backgroundColor: 'rgba(0,0,0,0.8)',
   },
   particle: {
     position: 'absolute',
   },
   badge: {
-    backgroundColor: palette.white,
-    borderRadius: radius.card,
-    paddingVertical: spacing['3xl'],
-    paddingHorizontal: spacing['4xl'],
+    backgroundColor: palette.bgCard,
+    borderRadius: radius.xl,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xxl,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
+    borderWidth: 1,
+    borderColor: palette.borderLight,
+    ...shadows.glow,
   },
-  checkEmoji: { fontSize: 40, marginBottom: spacing.innerSm },
-  badgeTitle: { ...fonts.sectionHeader, color: palette.textPrimary },
-  streakBig: { ...fonts.heroNumber, color: palette.primary, marginTop: spacing.lg },
-  streakLabel: { ...fonts.caption, color: palette.textMuted, marginTop: spacing.xs },
+  checkEmoji: { fontSize: 40, marginBottom: spacing.md },
+  badgeTitle: { ...fonts.h2, color: palette.textPrimary },
+  streakBig: { ...fonts.h1, fontSize: 48, color: palette.primary, marginTop: spacing.lg },
+  streakLabel: { ...fonts.label, color: palette.textSecondary, marginTop: spacing.xs, textTransform: 'uppercase' },
 });

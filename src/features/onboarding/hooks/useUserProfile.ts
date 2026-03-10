@@ -43,6 +43,8 @@ export const useUserProfile = () => {
     mutationFn: async (profileData: Partial<UserProfile>) => {
       if (!user) throw new Error('No user logged in');
       
+      // Use .maybeSingle() instead of .single() to prevent coercion errors
+      // when PostgREST cannot coerce the result to a single JSON object
       const { data, error } = await supabase
         .from('users')
         .upsert({ 
@@ -50,13 +52,15 @@ export const useUserProfile = () => {
           ...profileData 
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['userProfile', user?.id], data);
+      if (data) {
+        queryClient.setQueryData(['userProfile', user?.id], data);
+      }
     },
   });
 

@@ -53,22 +53,36 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
 const styles = StyleSheet.create({
   button: {
     width: '100%',
-    paddingVertical: spacing.lg,
-    borderRadius: radius.inner,
+    paddingVertical: 12, 
+    paddingHorizontal: 24,
+    borderRadius: radius.md, // 12px
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: spacing.xs,
-    minHeight: 52,
+    minHeight: 48,
   },
-  primary: { backgroundColor: palette.primary },
-  secondary: { backgroundColor: palette.primarySoft },
-  outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: palette.borderSubtle },
+  primary: { 
+    backgroundColor: palette.primary,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 59, 0.50)',
+    ...shadows.button,
+  },
+  secondary: { 
+    backgroundColor: palette.bgElevated, // #111111
+    borderWidth: 1,
+    borderColor: palette.borderLight, // 1px solid white/0.1
+  },
+  outline: { 
+    backgroundColor: 'transparent', 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 255, 255, 0.20)',
+  },
   danger: { backgroundColor: palette.danger },
-  small: { paddingVertical: spacing.md, minHeight: 44 },
-  disabled: { opacity: 0.5 },
-  text: { ...fonts.button },
+  small: { paddingVertical: spacing.sm, minHeight: 36 },
+  disabled: { opacity: 0.3, ...shadows.level1 },
+  text: { ...fonts.button, letterSpacing: 0.2 },
   primaryText: { color: palette.white },
-  secondaryText: { color: palette.primary },
-  outlineText: { color: palette.textSecondary },
+  secondaryText: { color: palette.white },
+  outlineText: { color: palette.white },
   dangerText: { color: palette.white },
 });
