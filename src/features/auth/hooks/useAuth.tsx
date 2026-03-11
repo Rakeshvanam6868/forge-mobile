@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import { supabase } from '../../../core/supabase/client';
 
 type AuthContextType = {
@@ -22,8 +23,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Handle incoming deep links (e.g. email confirmation, OAuth)
+  const handleDeepLink = async (url: string | null) => {
+    if (!url) return;
+    try {
+      // Supabase parses the fragment (#) for access_token, refresh_token
+      // React Native sometimes receives it as a query (?), so we replace it
+      const parsedUrl = new URL(url.replace('#', '?'));
+      const accessToken = parsedUrl.searchParams.get('access_token');
+      const refreshToken = parsedUrl.searchParams.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+      }
+    } catch (e) {
+      console.warn('[handleDeepLink] Failed parsing URL', e);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
+
+    // Check initial deep link on cold start
+    Linking.getInitialURL().then(handleDeepLink);
+
+    // Listen to deep links while app is open in background
+    const linkingSub = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
 
     // Check active sessions and sets the user
     supabase.auth.getSession().then((response) => {
@@ -57,6 +87,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      linkingSub.remove();
     };
   }, []);
 

@@ -102,6 +102,10 @@ export const generateProgram = async (
     if (!week) throw new Error(`Failed to create week ${w}`);
 
     // 4. Generate 7 days per week sequentially
+    const dayInserts = [];
+    const dayOutputs = [];
+    const dayTemplates = [];
+
     for (let d = 0; d < 7; d++) {
       globalDayCounter++;
 
@@ -121,52 +125,70 @@ export const generateProgram = async (
       // Get the correct template matching the deterministic output
       const template = getTemplateForType(nextOutput.workoutType, state.level, location, state.goal);
 
-      // Use array extraction instead of .single() to prevent coercion error
-      const { data: dayRows, error: dayError } = await supabase
-        .from('program_days')
-        .insert({
-          program_week_id: week.id,
-          day_number: d + 1,
-          title: template.title,
-          focus_type: template.focus_type,
-        })
-        .select();
+      dayOutputs.push(nextOutput);
+      dayTemplates.push(template);
 
-      if (dayError) throw dayError;
-      const day = Array.isArray(dayRows) ? dayRows[0] : dayRows;
-      if (!day) throw new Error(`Failed to create day ${d + 1}`);
+      dayInserts.push({
+        program_week_id: week.id,
+        day_number: d + 1,
+        title: template.title,
+        focus_type: template.focus_type,
+      });
+    }
 
-      // Insert workouts
+    // Batch Insert 7 Days
+    const { data: dayRows, error: dayError } = await supabase
+      .from('program_days')
+      .insert(dayInserts)
+      .select();
+
+    if (dayError) throw dayError;
+    const sortedDays = (dayRows as any[]).sort((a, b) => a.day_number - b.day_number);
+
+    let allWorkoutRows: any[] = [];
+    let allMealRows: any[] = [];
+
+    for (let d = 0; d < 7; d++) {
+      const day = sortedDays[d];
+      const template = dayTemplates[d];
+      const nextOutput = dayOutputs[d];
+
+      // Prepare workouts for batch
       if (template.workouts.length > 0) {
         // Apply volume modifier
         const mult = nextOutput.volumeModifier === 'intense' ? 1.2 : nextOutput.volumeModifier === 'reduced' ? 0.8 : 1;
         
-        const workoutRows = template.workouts.map((w, i) => ({
+        allWorkoutRows.push(...template.workouts.map((w: any, i: number) => ({
           program_day_id: day.id,
-          // NOTE: exercise_id intentionally omitted — the pool IDs don't match
-          // the exercise_details table IDs, causing FK violations. exercise_name
-          // is the primary identifier used by the UI and adaptive engine.
           exercise_name: w.exercise_name,
           sets: w.sets ? Math.max(1, Math.round(w.sets * mult)) : null,
           reps: w.reps ?? null,
           duration: w.duration ?? null,
           order_index: i,
-        }));
-        const { error: wErr } = await supabase.from('day_workouts').insert(workoutRows);
-        if (wErr) throw wErr;
+        })));
       }
 
-      // Insert meals
+      // Prepare meals for batch
       if (template.meals.length > 0) {
-        const mealRows = template.meals.map((m) => ({
+        allMealRows.push(...template.meals.map((m: any) => ({
           program_day_id: day.id,
           meal_type: m.meal_type,
           title: m.title,
           description: m.description,
-        }));
-        const { error: mErr } = await supabase.from('day_meals').insert(mealRows);
-        if (mErr) throw mErr;
+        })));
       }
+    }
+
+    // Batch Insert Workouts
+    if (allWorkoutRows.length > 0) {
+      const { error: wErr } = await supabase.from('day_workouts').insert(allWorkoutRows);
+      if (wErr) throw wErr;
+    }
+
+    // Batch Insert Meals
+    if (allMealRows.length > 0) {
+      const { error: mErr } = await supabase.from('day_meals').insert(allMealRows);
+      if (mErr) throw mErr;
     }
 
     // 5. Insert grocery list

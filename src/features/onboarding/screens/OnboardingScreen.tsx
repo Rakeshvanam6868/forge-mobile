@@ -6,6 +6,9 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { generateProgram } from '../../program/services/programGenerator';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
+import { trackAnalyticsEvent } from '../../../core/analytics/posthog';
+
+import { PlanGenerationSteps } from '../components/PlanGenerationSteps';
 
 const GOALS = [
   { id: 'fat_loss', label: 'Weight Loss' },
@@ -60,50 +63,57 @@ export const OnboardingScreen = () => {
   const handleNext = () => setStep(2);
   const handleBack = () => setStep(1);
 
+  // Track whether backend + animation are both done
+  const backendDoneRef = React.useRef(false);
+  const animationDoneRef = React.useRef(false);
+
+  const tryFinalize = async () => {
+    if (backendDoneRef.current && animationDoneRef.current) {
+      // Both done — mark onboarding complete and navigate
+      await upsertProfile.mutateAsync({ onboarding_completed: true });
+      await queryClient.invalidateQueries();
+    }
+  };
+
   const handleComplete = async () => {
     if (!user) return;
     try {
       setIsGenerating(true);
+      backendDoneRef.current = false;
+      animationDoneRef.current = false;
 
-      // STEP 1: Create the user profile FIRST (required for FK constraint)
-      // The `programs` table has a FK to `public.users`, so the row must exist.
-      // Set onboarding_completed: false so if generation fails, user stays on onboarding.
+      // STEP 1: Create user profile (FK requirement)
       await upsertProfile.mutateAsync({
-        goal: goal,
-        level: level,
-        environment: environment,
-        diet_type: 'Any',
+        goal, level, environment, diet_type: 'Any',
         weekly_frequency: frequency,
         last_workout_type: lastWorkout,
-        onboarding_completed: false, // Will flip to true AFTER program succeeds
+        onboarding_completed: false,
       });
 
-      // STEP 2: Generate the adaptive program
-      // Now the user row exists, so the FK constraint is satisfied
+      // STEP 2: Generate program (runs while animation plays)
       const result = await generateProgram(user.id, goal, level, environment, 'Any');
-      
       if (result?.program_id) {
         console.log('[Onboarding] Program created:', result.program_id);
+        trackAnalyticsEvent('plan_generated', { goal, level, environment, frequency });
       }
 
-      // STEP 3: Mark onboarding as complete (triggers navigation to MainTabs)
-      await upsertProfile.mutateAsync({
-        onboarding_completed: true,
-      });
-
-      // STEP 4: Clear all caches so the app re-fetches the real program data
-      await queryClient.invalidateQueries();
+      // Backend is done
+      backendDoneRef.current = true;
+      trackAnalyticsEvent('onboarding_completed');
+      tryFinalize();
 
     } catch (error: any) {
       if (error) {
         console.error('[Onboarding] Plan generation failed:', error);
-        Alert.alert(
-          'Setup Incomplete',
-          'There was a problem creating your plan. Please try again.'
-        );
+        Alert.alert('Setup Incomplete', 'There was a problem creating your plan. Please try again.');
       }
       setIsGenerating(false);
     }
+  };
+
+  const handleAnimationComplete = () => {
+    animationDoneRef.current = true;
+    tryFinalize();
   };
 
   const renderSection = (
@@ -138,15 +148,7 @@ export const OnboardingScreen = () => {
   );
 
   if (isGenerating) {
-    return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingCard}>
-          <ActivityIndicator size="large" color={palette.primary} />
-          <Text style={styles.loadingTitle}>Building your program</Text>
-          <Text style={styles.loadingText}>Connecting to adaptive engine…</Text>
-        </View>
-      </View>
-    );
+    return <PlanGenerationSteps onAnimationComplete={handleAnimationComplete} />;
   }
 
   return (

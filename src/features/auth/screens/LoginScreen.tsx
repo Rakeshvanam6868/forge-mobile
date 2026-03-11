@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Ale
 import { useNavigation } from '@react-navigation/native';
 import { AuthInput } from '../components/AuthInput';
 import { AuthButton } from '../components/AuthButton';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { authService } from '../services/authService';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 
@@ -72,6 +73,17 @@ export const LoginScreen = () => {
               onPress={() => navigation.navigate('Signup')}
               disabled={loading}
             />
+            
+            <View style={styles.divider}>
+              <View style={styles.line} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.line} />
+            </View>
+
+            <GoogleSignInButton
+              disabled={loading}
+              onError={(msg) => Alert.alert('Google Sign-In Failed', msg)}
+            />
           </View>
         </View>
       </ScrollView>
@@ -97,4 +109,7 @@ const styles = StyleSheet.create({
   subtitle: { ...fonts.body, color: palette.textSecondary, lineHeight: 22 },
   form: { width: '100%' },
   buttonGroup: { marginTop: spacing.lg, gap: spacing.md },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.md },
+  line: { flex: 1, height: 1, backgroundColor: palette.borderSubtle },
+  dividerText: { marginHorizontal: spacing.sm, ...fonts.label, color: palette.textMuted },
 });

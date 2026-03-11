@@ -27,6 +27,7 @@ import { useWorkoutSessionStore } from '../stores/workoutSessionStore';
 import { AppState, AppStateStatus } from 'react-native';
 import { supabase } from '../../../core/supabase/client';
 import { EXERCISE_POOL, PoolExercise } from '../../program/data/exercisePools';
+import { trackAnalyticsEvent } from '../../../core/analytics/posthog';
 
 // ═══════════════════════════════════════════════
 // Sub-Components
@@ -433,6 +434,7 @@ export const WorkoutModeScreen = () => {
     if (!isActive && route.params?.workouts) {
       start(route.params.workouts as AdaptedWorkout[]);
       navigation.setParams({ workouts: undefined });
+      trackAnalyticsEvent('workout_started', { workout_count: route.params.workouts.length });
     }
   }, [isActive, route.params?.workouts]);
 
@@ -556,6 +558,10 @@ export const WorkoutModeScreen = () => {
   const handleFinish = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const summary = finish();
+    trackAnalyticsEvent('workout_completed', { 
+      duration_minutes: summary.durationMinutes,
+      total_volume: summary.totalVolume
+    });
     navigation.replace('WorkoutSummary', { summary });
   }, [finish, navigation]);
 

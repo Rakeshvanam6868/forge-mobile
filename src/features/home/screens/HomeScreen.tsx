@@ -11,6 +11,7 @@ import { GreetingHeader } from '../../../core/components/GreetingHeader';
 import { WeeklyPerformance } from '../components/WeeklyPerformance';
 import { ConsistencyGrid } from '../components/ConsistencyGrid';
 import { RecoveryCard } from '../components/RecoveryCard';
+import { MotivationCard } from '../components/MotivationCard';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 import { useLayoutTokens } from '../../../core/theme/layout';
 import { toDateString } from '../../../core/utils/dateUtils';
@@ -51,10 +52,19 @@ export const HomeScreen = () => {
     return { todayState: tState, nextDateStr: displayDate, backendGrid: grid, currentStreak };
   }, [events, analytics.firstSeenDate, profile?.weekly_frequency]);
 
+  const isTodayComplete = todayState === 'COMPLETED' || todayState === 'RECOVERY';
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]} showsVerticalScrollIndicator={false}>
       {/* 👋 Greeting */}
       <GreetingHeader />
+
+      {/* 💪 Motivation Card — only if today's workout not yet done */}
+      <MotivationCard
+        currentStreak={currentStreak}
+        completedThisWeek={analytics.usage.activeDaysLast7}
+        todayCompleted={isTodayComplete}
+      />
 
       <RecoveryCard 
         visible={todayState === 'RECOVERY'} 
