@@ -269,7 +269,7 @@ export const TodayScreen = () => {
                               </View>
                             )}
                           </View>
-                        )}
+                        )} 
 
                       </View>
                     </View>

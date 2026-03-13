@@ -71,15 +71,17 @@ const AppTabs = () => {
           name={tab.name}
           component={tab.component}
           options={{
-            tabBarIcon: ({ focused, color }) => (
+            tabBarIcon: ({ focused, color }) => {
+              const iconName = focused ? tab.icon : `${tab.icon}-outline`;
+              return (
               <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
                 <Ionicons 
-                  name={focused ? tab.icon as any : `${tab.icon}-outline` as any} 
+                  name={iconName as any} 
                   size={focused ? 24 : 22} 
                   color={color} 
                 />
               </View>
-            ),
+            )},
           }}
         />
       ))}
