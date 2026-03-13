@@ -24,6 +24,7 @@ import { useExerciseDetail } from '../../program/hooks/useExerciseDetail';
 import { AdaptedWorkout } from '../../program/services/adaptiveEngine';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
 import { useWorkoutSessionStore } from '../stores/workoutSessionStore';
+import { useWeight } from '../../../core/hooks/useWeight';
 import { AppState, AppStateStatus } from 'react-native';
 import { supabase } from '../../../core/supabase/client';
 import { EXERCISE_POOL, PoolExercise } from '../../program/data/exercisePools';
@@ -290,15 +291,35 @@ const ExerciseReplacementModal = ({ visible, onClose, currentExerciseName, onSel
   visible: boolean; onClose: () => void; currentExerciseName: string;
   onSelect: (exercise: PoolExercise) => void;
 }) => {
-  // Find muscle groups of current exercise
+  // Get user profile for location (equipment logic)
+  const { user } = useAuth();
+  const { data: profile } = useQuery({
+    queryKey: ['userProfile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase.from('users').select('workout_location').eq('id', user.id).single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Find muscle groups and category of current exercise
   const currentPool = EXERCISE_POOL.find(e => e.name === currentExerciseName);
   const muscleGroups = currentPool?.muscleGroup || [];
+  const category = currentPool?.category;
 
-  const alternatives = EXERCISE_POOL.filter(e =>
-    e.name !== currentExerciseName &&
-    e.category !== 'warmup' &&
-    e.muscleGroup.some(mg => muscleGroups.includes(mg))
-  );
+  const alternatives = EXERCISE_POOL.filter(e => {
+    if (e.name === currentExerciseName) return false;
+    if (category && e.category !== category) return false; // Must match compound to compound, isolation to isolation
+    if (!e.muscleGroup.some(mg => muscleGroups.includes(mg))) return false;
+
+    // Filter by location equipment constraints (e.g. Home = no machines)
+    if (profile?.workout_location?.toLowerCase() === 'home') {
+      if (e.equipment.includes('machine') || e.equipment.includes('cable') || e.equipment.includes('barbell')) return false;
+    }
+    
+    return true;
+  });
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -349,9 +370,9 @@ const replaceStyles = StyleSheet.create({
   },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: palette.borderSubtle, alignSelf: 'center', marginBottom: spacing.lg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  title: { ...fonts.screenTitle, color: '#FFFFFF' },
+  title: { ...fonts.h1, color: '#FFFFFF' },
   closeBtn: { fontSize: 24, color: palette.textMuted },
-  subtitle: { ...fonts.caption, color: '#9A9A9A', marginBottom: spacing.lg },
+  subtitle: { ...fonts.body, color: '#9A9A9A', marginBottom: spacing.lg },
   scroll: { flexGrow: 1 },
   exRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -360,9 +381,9 @@ const replaceStyles = StyleSheet.create({
     marginBottom: 12, ...shadows.card,
   },
   exInfo: { flex: 1 },
-  exName: { ...fonts.cardTitle, color: '#FFFFFF', marginBottom: 2 },
-  exMeta: { ...fonts.caption, color: '#9A9A9A' },
-  exArrow: { ...fonts.cardValue, color: '#FF3B30', paddingLeft: 12 },
+  exName: { ...fonts.h3, color: '#FFFFFF', marginBottom: 2 },
+  exMeta: { ...fonts.body, color: '#9A9A9A' },
+  exArrow: { ...fonts.h3, color: palette.primary, paddingLeft: 12 },
   noAlt: { ...fonts.body, color: palette.textMuted, textAlign: 'center', paddingVertical: 24 },
 });
 
@@ -385,6 +406,7 @@ export const WorkoutModeScreen = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { profile } = useUserProfile();
+  const { weightUnit, formatWithUnit, convert } = useWeight();
   
   // Need store direct actions for skip / cancel / replace that aren't in the hook
   const { skipExercise, cancelWorkout, replaceExercise } = useWorkoutSessionStore();
@@ -434,7 +456,7 @@ export const WorkoutModeScreen = () => {
     if (!isActive && route.params?.workouts) {
       start(route.params.workouts as AdaptedWorkout[]);
       navigation.setParams({ workouts: undefined });
-      trackAnalyticsEvent('workout_started', { workout_count: route.params.workouts.length });
+      trackAnalyticsEvent('workout_started', { workout_count: route.params.workouts.length, user_id: user?.id });
     }
   }, [isActive, route.params?.workouts]);
 
@@ -448,11 +470,37 @@ export const WorkoutModeScreen = () => {
     return () => sub.remove();
   }, [pauseSession, resumeSession]);
 
+  // Prevent session loss on back gesture
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      // If workout is active and not just finished, show alert
+      if (isActive && !isWorkoutComplete && !route.params?.summary) {
+        e.preventDefault();
+        Alert.alert(
+          'Workout in Progress',
+          'Are you sure you want to leave? Your progress will be saved, and you can resume later.',
+          [
+            { text: 'Stay', style: 'cancel', onPress: () => {} },
+            {
+              text: 'Leave',
+              style: 'destructive',
+              onPress: () => navigation.dispatch(e.data.action),
+            },
+          ]
+        );
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isActive, isWorkoutComplete, route.params?.summary]);
+
   // Restore start time ref
   useEffect(() => {
     if (isActive) {
-      const store = require('../stores/workoutSessionStore').useWorkoutSessionStore.getState();
-      if (store.startTime) startTimeRef.current = new Date(store.startTime).getTime();
+      const storeState = useWorkoutSessionStore.getState();
+      if (storeState.startTime) {
+        startTimeRef.current = new Date(storeState.startTime).getTime();
+      }
     }
   }, [isActive]);
 
@@ -560,7 +608,8 @@ export const WorkoutModeScreen = () => {
     const summary = finish();
     trackAnalyticsEvent('workout_completed', { 
       duration_minutes: summary.durationMinutes,
-      total_volume: summary.totalVolume
+      total_volume: summary.totalVolume,
+      user_id: user?.id,
     });
     navigation.replace('WorkoutSummary', { summary });
   }, [finish, navigation]);
@@ -593,13 +642,20 @@ export const WorkoutModeScreen = () => {
       name: poolEx.name,
       category: poolEx.category,
     });
+    trackAnalyticsEvent('exercise_replaced', {
+      user_id: user?.id,
+      from_exercise_id: currentExercise?.exerciseId,
+      from_exercise_name: currentExercise?.exerciseName,
+      to_exercise_id: poolEx.id,
+      to_exercise_name: poolEx.name,
+    });
     // Clear weight input for the new exercise
     setExerciseWeights(prev => {
       const next = { ...prev };
       delete next[currentExercise?.exerciseId || ''];
       return next;
     });
-  }, [replaceExercise, currentExerciseIndex, currentExercise]);
+  }, [replaceExercise, currentExerciseIndex, currentExercise, user?.id]);
 
   // ─── Guard ───────────────────────────────────
   if (!isActive || !currentExercise) {
@@ -617,7 +673,7 @@ export const WorkoutModeScreen = () => {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={palette.bgPrimary} />
+      <StatusBar barStyle="dark-content" backgroundColor={palette.bgBase} />
 
       {/* Rest Timer Overlay with Next Exercise Preview */}
       {restTimer.isActive && (
@@ -671,7 +727,7 @@ export const WorkoutModeScreen = () => {
         {previousWeight !== null && previousWeight !== undefined && currentSetIndex === 0 && !currentExercise.sets[0].completed && (
           <View style={styles.historyBox}>
             <Text style={styles.historyText}>
-              Last: {previousWeight} lbs | Suggested: {Number(previousWeight) + (profile?.level === 'beginner' ? 2.5 : 5)} lbs
+              Last: {formatWithUnit(previousWeight)} | Suggested: {formatWithUnit(Number(previousWeight) + (profile?.level === 'beginner' ? 2.5 : 5))}
             </Text>
           </View>
         )}
@@ -705,7 +761,7 @@ export const WorkoutModeScreen = () => {
                   <View style={styles.inputArea}>
                     <View style={styles.inputRow}>
                       <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Weight (lbs)</Text>
+                        <Text style={styles.inputLabel}>Weight ({weightUnit})</Text>
                         <TextInput style={styles.input} value={editWeight} onChangeText={setEditWeight}
                           keyboardType="numeric" placeholder="optional" placeholderTextColor={palette.textMuted} />
                       </View>
@@ -730,7 +786,7 @@ export const WorkoutModeScreen = () => {
                   /* Completed set — tappable to edit */
                   <TouchableOpacity onPress={() => handleEditSet(idx)} activeOpacity={0.7}>
                     <Text style={styles.completedInfo}>
-                      {setLog.weight ? `${setLog.weight} lbs` : 'Bodyweight'}
+                      {setLog.weight ? formatWithUnit(setLog.weight) : 'Bodyweight'}
                       {setLog.reps ? ` × ${setLog.reps} reps` : ''}
                       {setLog.duration ? ` × ${setLog.duration}s` : ''}
                     </Text>
@@ -741,7 +797,7 @@ export const WorkoutModeScreen = () => {
                   <View style={styles.inputArea}>
                     <View style={styles.inputRow}>
                       <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Weight (lbs)</Text>
+                        <Text style={styles.inputLabel}>Weight ({weightUnit})</Text>
                         <TextInput style={styles.input}
                           value={exerciseWeights[currentExercise.exerciseId] || ''}
                           onChangeText={(val) => setExerciseWeights(p => ({ ...p, [currentExercise.exerciseId]: val }))}

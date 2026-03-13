@@ -7,7 +7,7 @@ import { useAnalytics } from '../../analytics/hooks/useAnalytics';
 import { StatCard } from '../../../core/components/StatCard';
 import { SectionBlock } from '../../../core/components/SectionBlock';
 import { GradientCard } from '../../../core/components/GradientCard';
-import { GreetingHeader } from '../../../core/components/GreetingHeader';
+import { BrandHeader } from '../../../core/components/BrandHeader';
 import { WeeklyPerformance } from '../components/WeeklyPerformance';
 import { ConsistencyGrid } from '../components/ConsistencyGrid';
 import { RecoveryCard } from '../components/RecoveryCard';
@@ -55,11 +55,13 @@ export const HomeScreen = () => {
   const isTodayComplete = todayState === 'COMPLETED' || todayState === 'RECOVERY';
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]} showsVerticalScrollIndicator={false}>
-      {/* 👋 Greeting */}
-      <GreetingHeader />
+    <View style={styles.screen}>
+      <View style={styles.floatingHeader}>
+        <BrandHeader />
+      </View>
 
-      {/* 💪 Motivation Card — only if today's workout not yet done */}
+      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding + 80 }]} showsVerticalScrollIndicator={false}>
+        {/* 💪 Motivation Card — only if today's workout not yet done */}
       <MotivationCard
         currentStreak={currentStreak}
         completedThisWeek={analytics.usage.activeDaysLast7}
@@ -102,13 +104,27 @@ export const HomeScreen = () => {
 
       <View style={styles.logoutWrap}><AuthButton title="Logout" onPress={handleLogout} variant="outline" /></View>
     </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bgBase },
+  floatingHeader: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: spacing.screenPadding, paddingTop: 40 },
+  content: { padding: spacing.screenPadding, paddingTop: 130 },
+  mainContainer: {
+    maxWidth: 680,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+  },
   
   heroCard: {
     backgroundColor: palette.bgCard,

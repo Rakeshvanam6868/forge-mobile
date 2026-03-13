@@ -1,7 +1,9 @@
 import { supabase } from '../../../core/supabase/client';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { trackAnalyticsEvent, identifyUser } from '../../../core/analytics/posthog';
+import { trackAnalyticsEvent, identifyUser, resetAnalytics } from '../../../core/analytics/posthog';
+import { queryClient } from '../../../core/query/client';
+import { useWorkoutSessionStore } from '../../workout/stores/workoutSessionStore';
 
 // Ensure browser closes after redirect
 WebBrowser.maybeCompleteAuthSession();
@@ -16,7 +18,7 @@ export const authService = {
     
     if (data.user) {
       identifyUser(data.user.id, { email });
-      trackAnalyticsEvent('user_signed_up', { method: 'email' });
+      trackAnalyticsEvent('user_signed_up', { method: 'email', user_id: data.user.id });
     }
 
     // If auto-logged in by Supabase, sign them out manually
@@ -33,50 +35,77 @@ export const authService = {
       password,
     });
     if (error) throw error;
+
     return data;
   },
 
   signInWithGoogle: async () => {
-    // Generate a deep link to return to the app
-    const returnUrl = Linking.createURL('');
+    try {
+      // Generate a deep link to return to the app
+      const returnUrl = Linking.createURL('');
+      console.log('[AuthService] Return URL:', returnUrl);
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: returnUrl,
-        skipBrowserRedirect: true,
-      },
-    });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: returnUrl,
+          skipBrowserRedirect: true,
+        },
+      });
 
-    if (error) throw error;
-    if (!data?.url) throw new Error('No redirect URL from Supabase');
+      if (error) throw error;
+      if (!data?.url) throw new Error('No redirect URL from Supabase');
 
-    // Open the browser for OAuth
-    const result = await WebBrowser.openAuthSessionAsync(data.url, returnUrl);
+      // Open the browser for OAuth
+      const result = await WebBrowser.openAuthSessionAsync(data.url, returnUrl);
 
-    if (result.type === 'success') {
-      const { url } = result;
-      // We need to parse the URL and extract the session tokens to pass to Supabase
-      // Usually Supabase's `onAuthStateChange` listener handles this automatically
-      // if it's initialized with the URL, but React Native deep links require manual processing sometimes
-      const parsedUrl = new URL(url.replace('#', '?'));
-      const accessToken = parsedUrl.searchParams.get('access_token');
-      const refreshToken = parsedUrl.searchParams.get('refresh_token');
+      if (result.type === 'success' && result.url) {
+        const parsedUrl = new URL(result.url.replace('#', '?'));
+        const accessToken = parsedUrl.searchParams.get('access_token');
+        const refreshToken = parsedUrl.searchParams.get('refresh_token');
 
-      if (accessToken && refreshToken) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (sessionError) throw sessionError;
+        if (accessToken && refreshToken) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (sessionError) throw sessionError;
+          return { success: true };
+        }
       }
-    } else {
-      throw new Error('Google sign-in was cancelled');
+      
+      // Fallback: If WebBrowser closes but Supabase session is already set by listener
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) return { success: true };
+
+      throw new Error('Google sign-in was cancelled or failed to retrieve session');
+    } catch (error) {
+      console.error('[AuthService] Google Sign-In Error:', error);
+      throw error;
     }
   },
 
   signOut: async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+
+    // Clear client-side caches and analytics
+    try {
+      queryClient.clear();
+    } catch (e) {
+      console.warn('Failed to clear query client on signOut', e);
+    }
+
+    try {
+      resetAnalytics();
+    } catch (e) {
+      console.warn('Failed to reset analytics on signOut', e);
+    }
+
+    try {
+      useWorkoutSessionStore.getState().clearSession();
+    } catch (e) {
+      console.warn('Failed to clear workout session store on signOut', e);
+    }
   },
 };

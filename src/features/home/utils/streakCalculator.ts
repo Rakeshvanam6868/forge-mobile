@@ -29,23 +29,18 @@ export const calculateStreaks = (
   const todayIndex = last30Days.indexOf(today);
   
   if (todayIndex !== -1) {
-    // Current streak: count backward from yesterday
-    let i = todayIndex - 1;
+    // Current streak logic:
+    // If today is completed → streak = yesterday's streak + 1
+    // If today is NOT completed → streak = yesterday's streak (streak is still alive until day ends)
+    
     let ongoingStreak = 0;
+    let i = todayIndex - (completedDaysMap[today] ? 0 : 1);
     
     while (i >= 0 && completedDaysMap[last30Days[i]]) {
       ongoingStreak++;
       i--;
     }
-    
-    // If today is completed, current streak includes today
-    if (completedDaysMap[today]) {
-      currentStreak = ongoingStreak + 1;
-    } else {
-      // If today is NOT completed, today does not break the streak until the day ends.
-      // E.g., if you haven't worked out yet today, your streak is still intact from yesterday.
-      currentStreak = ongoingStreak;
-    }
+    currentStreak = ongoingStreak;
   }
 
   return {

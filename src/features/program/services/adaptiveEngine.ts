@@ -113,19 +113,27 @@ export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
   }
 
   // ────────────────────────────────────
-  // RULE 5: Progressive overload from exercise history
+  // RULE 5: Progressive overload & Recovery Adjustments from exercise history
   // ────────────────────────────────────
   else if (exerciseHistory.length > 0) {
-    const avgDifficulty = getAverageDifficulty(exerciseHistory);
+    // We only care about the LAST session's average difficulty for adaptive drops
+    const lastSessionDifficulty = getAverageDifficulty(exerciseHistory);
 
-    if (avgDifficulty === 'easy') {
+    if (lastSessionDifficulty === 'easy') {
       progression = 'increase_reps';
       volumeMultiplier = 1.05;
       systemMessage = '💪 Last session felt easy — adding slight overload.';
-    } else if (avgDifficulty === 'hard') {
-      progression = 'deload';
-      volumeMultiplier = 0.9;
-      systemMessage = '⚖️ Last session was tough — reducing volume slightly.';
+    } else if (lastSessionDifficulty === 'hard') {
+      // Feature 4: Recovery Aware Volume Adjustment
+      if (lastEnergy <= 1) {
+        progression = 'deload';
+        volumeMultiplier = 0.75; // Drop 25% volume (usually translates to 1 fewer set per exercise)
+        systemMessage = '🔋 You pushed hard last time but energy is low today. Volume reduced to optimize recovery.';
+      } else {
+        progression = 'deload';
+        volumeMultiplier = 0.9;
+        systemMessage = '⚖️ Last session was tough — reducing volume slightly to keep you moving.';
+      }
     } else {
       systemMessage = '✅ Staying on track with your program.';
     }

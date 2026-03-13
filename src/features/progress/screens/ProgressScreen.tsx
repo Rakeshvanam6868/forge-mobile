@@ -38,8 +38,10 @@ export const ProgressScreen = () => {
   const { backendGrid, currentStreak } = useMemo(() => {
     if (!analytics || !events) return { backendGrid: [], currentStreak: 0 };
     const start = analytics.firstSeenDate || toDateString(new Date());
-    const { grid, currentStreak } = buildConsistencyGrid(start, toDateString(new Date()), profile?.weekly_frequency, events);
-    return { backendGrid: grid, currentStreak };
+    const { grid } = buildConsistencyGrid(start, toDateString(new Date()), profile?.weekly_frequency, events);
+    
+    // FAVOR analytics engine currentStreak for the BIG hero number as it's more stable (Daily)
+    return { backendGrid: grid, currentStreak: analytics.streakIntelligence.currentStreak };
   }, [events, analytics, profile?.weekly_frequency]);
 
   // Workout Frequency Insights

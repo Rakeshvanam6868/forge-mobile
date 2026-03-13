@@ -245,14 +245,21 @@ export const WorkoutSummaryScreen = () => {
           .map(ex => {
             const completedSets = ex.sets.filter(s => s.completed);
             const lastSet = completedSets[completedSets.length - 1];
+            // Find max weight lifted in this session for this exercise
+            let maxWeight = 0;
+            completedSets.forEach(s => {
+               if (s.weight && s.weight > maxWeight) maxWeight = s.weight;
+            });
+
             return {
               exercise_id: ex.exerciseId,
               sets: completedSets.length,
               reps: lastSet?.reps ?? null,
+              weight: maxWeight > 0 ? maxWeight : null,
               difficulty: difficulty,
             };
           });
-        await upsertExerciseHistory(user.id, historyRows).catch(e =>
+        await upsertExerciseHistory(user.id, historyRows, energy).catch(e =>
           console.warn('Failed to upsert exercise history:', e)
         );
       }

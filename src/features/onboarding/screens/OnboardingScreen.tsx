@@ -94,12 +94,12 @@ export const OnboardingScreen = () => {
       const result = await generateProgram(user.id, goal, level, environment, 'Any');
       if (result?.program_id) {
         console.log('[Onboarding] Program created:', result.program_id);
-        trackAnalyticsEvent('plan_generated', { goal, level, environment, frequency });
+        trackAnalyticsEvent('plan_generated', { goal, level, environment, frequency, user_id: user.id });
       }
 
       // Backend is done
       backendDoneRef.current = true;
-      trackAnalyticsEvent('onboarding_completed');
+      trackAnalyticsEvent('onboarding_completed', { user_id: user.id });
       tryFinalize();
 
     } catch (error: any) {

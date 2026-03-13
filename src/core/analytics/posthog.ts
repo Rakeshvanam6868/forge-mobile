@@ -1,15 +1,33 @@
+import { Platform } from 'react-native';
 import PostHog from 'posthog-react-native';
 
-export const posthog = new PostHog('phc_BbW36YNBI1i7kiWMfSkUjDZr49HVd18ikqm9GkI3xj7', {
-  host: 'https://eu.posthog.com', // Change if using EU instance
-  captureAppLifecycleEvents: true,
-});
+const apiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
+const host = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://eu.posthog.com';
+
+const noopClient = {
+  capture: () => {},
+  identify: () => {},
+  reset: () => {},
+};
+
+export const posthog =
+  apiKey && apiKey.length > 0
+    ? new PostHog(apiKey, {
+        host,
+        captureAppLifecycleEvents: true,
+      })
+    : (noopClient as unknown as PostHog);
 
 export const trackAnalyticsEvent = (
   eventName: string,
   properties?: Record<string, any>
 ) => {
-  posthog.capture(eventName, properties);
+  const enriched = {
+    ...(properties ?? {}),
+    timestamp: new Date().toISOString(),
+    platform: Platform.OS,
+  };
+  posthog.capture(eventName, enriched);
 };
 
 export const identifyUser = (userId: string, properties?: Record<string, any>) => {

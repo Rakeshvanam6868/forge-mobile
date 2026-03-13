@@ -4,15 +4,20 @@ import { authService } from '../services/authService';
 import { palette, fonts, spacing, radius } from '../../../core/theme/designTokens';
 
 interface Props {
+  onPress?: () => void;
   onSuccess?: () => void;
   onError?: (error: string) => void;
   disabled?: boolean;
 }
 
-export const GoogleSignInButton: React.FC<Props> = ({ onSuccess, onError, disabled }) => {
+export const GoogleSignInButton: React.FC<Props> = ({ onPress, onSuccess, onError, disabled }) => {
   const [loading, setLoading] = useState(false);
 
   const handlePress = async () => {
+    if (onPress) {
+      onPress();
+      return;
+    }
     try {
       setLoading(true);
       await authService.signInWithGoogle();

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { AuthInput } from '../components/AuthInput';
 import { AuthButton } from '../components/AuthButton';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { authService } from '../services/authService';
-import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
+import { palette, fonts, spacing } from '../../../core/theme/designTokens';
+import { BrandIdentity } from '../../../core/components/BrandIdentity';
 
 export const LoginScreen = () => {
   const navigation = useNavigation<any>();
@@ -28,15 +29,32 @@ export const LoginScreen = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      const result = await authService.signInWithGoogle();
+      // If result is success, we STAY loading until the auth listener handles navigation
+      if (!result?.success) {
+        setLoading(false);
+      }
+    } catch (error: any) {
+      if (error.message !== 'Google sign-in was cancelled' && 
+          error.message !== 'Google sign-in was cancelled or failed to retrieve session') {
+        Alert.alert('Google Sign-In Failed', error.message);
+      }
+      setLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Illustration placeholder */}
+        {/* Branded Identity */}
         <View style={styles.illustrationArea}>
-          <Text style={styles.illustrationEmoji}>🏋️‍♀️</Text>
+          <BrandIdentity size="large" vertical />
         </View>
 
         <View style={styles.header}>
@@ -82,11 +100,17 @@ export const LoginScreen = () => {
 
             <GoogleSignInButton
               disabled={loading}
-              onError={(msg) => Alert.alert('Google Sign-In Failed', msg)}
+              onPress={handleGoogleLogin}
             />
           </View>
         </View>
       </ScrollView>
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={palette.primary} />
+          <Text style={styles.loadingText}>Authenticating...</Text>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -112,4 +136,16 @@ const styles = StyleSheet.create({
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.md },
   line: { flex: 1, height: 1, backgroundColor: palette.borderSubtle },
   dividerText: { marginHorizontal: spacing.sm, ...fonts.label, color: palette.textMuted },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    ...fonts.h3,
+    color: palette.white,
+    marginTop: spacing.md,
+  },
 });

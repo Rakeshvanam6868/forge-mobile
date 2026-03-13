@@ -32,22 +32,57 @@ export const upsertExerciseHistory = async (
     exercise_id: string;
     sets: number | null;
     reps: number | null;
+    weight: number | null;
     difficulty: Difficulty;
-  }[]
+  }[],
+  sessionEnergy: number | null
 ): Promise<void> => {
   if (exercises.length === 0) return;
 
   const todayStr = toDateString(new Date());
-  const rows = exercises.map((e) => ({
-    user_id: userId,
-    exercise_id: e.exercise_id,
-    last_sets: e.sets,
-    last_reps: e.reps,
-    last_weight: null,
-    difficulty: e.difficulty,
-    performed_at: todayStr,
-    updated_at: new Date().toISOString(),
-  }));
+
+  // 1. Fetch current history to understand previous baselines
+  const { data: currentHistory } = await supabase
+    .from('exercise_history')
+    .select('exercise_id, last_weight, suggested_weight')
+    .eq('user_id', userId)
+    .in('exercise_id', exercises.map(e => e.exercise_id));
+
+  const historyMap = new Map((currentHistory || []).map(h => [h.exercise_id, h]));
+
+  const rows = exercises.map((e) => {
+    let suggested = e.weight;
+
+    // Apply Smart Weight Progression Rule
+    // if difficulty = easy AND energy >= medium -> increase weight by 2.5–5%
+    // if difficulty = hard OR energy = low -> reduce weight by 2–5%
+    if (e.weight && e.weight > 0) {
+      if (e.difficulty === 'easy' && sessionEnergy && sessionEnergy >= 2) {
+        suggested = e.weight * 1.05; // 5% increase
+      } else if (e.difficulty === 'hard' || (sessionEnergy && sessionEnergy <= 1)) {
+        suggested = e.weight * 0.95; // 5% decrease
+      }
+
+      // Round to nearest 2.5kg for practical plates
+      if (suggested) {
+        suggested = Math.round(suggested / 2.5) * 2.5;
+        // ensure we never suggest 0 if they lifted > 0
+        if (suggested < 2.5) suggested = 2.5; 
+      }
+    }
+
+    return {
+      user_id: userId,
+      exercise_id: e.exercise_id,
+      last_sets: e.sets,
+      last_reps: e.reps,
+      last_weight: e.weight,
+      suggested_weight: suggested,
+      difficulty: e.difficulty,
+      performed_at: todayStr,
+      updated_at: new Date().toISOString(),
+    };
+  });
 
   const { error } = await supabase
     .from('exercise_history')

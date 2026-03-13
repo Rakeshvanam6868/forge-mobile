@@ -13,8 +13,8 @@ import { OnboardingScreen } from '../features/onboarding/screens/OnboardingScree
 import { TodayScreen } from '../features/program/screens/TodayScreen';
 import { WeekScreen } from '../features/program/screens/WeekScreen';
 import { HomeScreen } from '../features/home/screens/HomeScreen';
-import { AnalyticsScreen } from '../features/analytics/screens/AnalyticsScreen';
 import { ProgressScreen } from '../features/progress/screens/ProgressScreen';
+import { ProfileScreen } from '../features/profile/screens/ProfileScreen';
 import { useRetention } from '../features/retention/hooks/useRetention';
 import { WorkoutModeScreen } from '../features/workout/screens/WorkoutModeScreen';
 import { WorkoutSummaryScreen } from '../features/workout/screens/WorkoutSummaryScreen';
@@ -36,7 +36,7 @@ const TAB_ITEMS = [
   { name: 'Today', icon: 'fitness', component: TodayScreen },
   { name: 'Week', icon: 'calendar', component: WeekScreen },
   { name: 'Progress', icon: 'stats-chart', component: ProgressScreen },
-  { name: 'Analytics', icon: 'pie-chart', component: AnalyticsScreen },
+  { name: 'Profile', icon: 'person', component: ProfileScreen },
 ];
 
 const AppTabs = () => {
@@ -95,7 +95,7 @@ const MainNavigator = ({ hasProfile }: { hasProfile: boolean }) => (
         <MainStack.Screen
           name="WorkoutMode"
           component={WorkoutModeScreen}
-          options={{ gestureEnabled: false, animation: 'slide_from_bottom' }}
+          options={{ gestureEnabled: true, animation: 'slide_from_bottom' }}
         />
         <MainStack.Screen
           name="WorkoutSummary"
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
   },
-  // tabIconActive: {
-  //   backgroundColor: 'rgba(255, 59, 59, 0.05)',
-  // },
+  tabIconActive: {
+    backgroundColor: 'rgba(255, 59, 59, 0.05)',
+  },
 });

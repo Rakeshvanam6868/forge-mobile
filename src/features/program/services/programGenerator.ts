@@ -321,14 +321,31 @@ function getTemplateForType(type: WorkoutType, level: string, location: string, 
 
   const generatedWorkouts: WorkoutTemplate[] = [];
   
+  // Beginner Base (4-5 exercises)
   if (warmupEx) generatedWorkouts.push(formatEx(warmupEx, level));
   if (compoundEx) generatedWorkouts.push(formatEx(compoundEx, level));
   if (accessoryEx1) generatedWorkouts.push(formatEx(accessoryEx1, level));
   if (accessoryEx2) generatedWorkouts.push(formatEx(accessoryEx2, level));
-  if (isolationEx) generatedWorkouts.push(formatEx(isolationEx, level));
-  
-  // Advanced gets extra core at the end
-  if (coreEx && (level === 'advanced' || type === 'full' || type === 'legs' || type === 'lower')) {
+
+  // Intermediate Adds Isolation (6 exercises total)
+  if (level === 'intermediate' || level === 'advanced') {
+    if (isolationEx) generatedWorkouts.push(formatEx(isolationEx, level));
+    const extraAcc = getExercises(safeSecondary, 'accessory', location, 2)[1];
+    if (extraAcc && extraAcc.name !== accessoryEx1?.name && extraAcc.name !== accessoryEx2?.name) {
+      generatedWorkouts.push(formatEx(extraAcc, level));
+    }
+  }
+
+  // Advanced Gets Extra Isolation and Core (7-9 exercises total)
+  if (level === 'advanced') {
+    const extraIso = getExercises(safePrimary, 'isolation', location, 3)[2];
+    if (extraIso && extraIso.name !== isolationEx?.name) {
+      generatedWorkouts.push(formatEx(extraIso, level));
+    }
+  }
+
+  // Core (Always for advanced, conditional for others based on split)
+  if (coreEx && (level === 'advanced' || type === 'full' || type === 'legs' || type === 'lower' || level === 'intermediate')) {
     generatedWorkouts.push(formatEx(coreEx, level));
   }
 

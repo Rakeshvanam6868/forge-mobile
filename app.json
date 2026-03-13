@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "TrainSmarter",
-    "slug": "trainsmarter",
+    "slug": "FitnessApp",
     "version": "1.0.0",
     "scheme": "trainsmarter",
     "orientation": "portrait",
@@ -19,9 +19,7 @@
       "package": "com.trainsmarter.trainsmarter",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -36,7 +34,13 @@
     "plugins": [
       "expo-web-browser",
       "expo-localization",
-      "@sentry/react-native"
+      [
+        "@sentry/react-native",
+        {
+          "organization": "rakeshvanam",
+          "project": "trainsmarter"
+        }
+      ]
     ]
   }
 }

@@ -1,8 +1,15 @@
 import * as Sentry from '@sentry/react-native';
 
+const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+
 export const initSentry = () => {
+  if (!dsn) {
+    // In local/dev without DSN configured, skip initialization
+    return;
+  }
+
   Sentry.init({
-    dsn: 'https://ba53e8a3355919247f670903e33144f0@o4511024523509760.ingest.de.sentry.io/4511024572072016', // Set DSN from Sentry Dashboard
+    dsn,
     debug: false,
     tracesSampleRate: 1.0,
     _experiments: {

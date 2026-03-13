@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
   TouchableOpacity, Alert, Modal, Pressable
@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useAdaptiveDay } from '../hooks/useAdaptiveDay';
 import { upsertExerciseHistory } from '../services/exerciseHistoryQueries';
+import { useQuery } from '@tanstack/react-query';
 import { Difficulty, AdaptedWorkout } from '../services/adaptiveEngine';
 import { useRetention } from '../../retention/hooks/useRetention';
 import { useExerciseDetail } from '../hooks/useExerciseDetail';
@@ -18,9 +19,11 @@ import { Badge } from '../../../core/components/Badge';
 import { PrimaryCard } from '../../../core/components/PrimaryCard';
 import { SectionBlock } from '../../../core/components/SectionBlock';
 import { GradientCard } from '../../../core/components/GradientCard';
-import { GreetingHeader } from '../../../core/components/GreetingHeader';
+import { BrandHeader } from '../../../core/components/BrandHeader';
 import { CelebrationOverlay } from '../../../core/components/CelebrationOverlay';
+import { PredictionCard } from '../components/PredictionCard';
 import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
+import { useWeight } from '../../../core/hooks/useWeight';
 import { useLayoutTokens } from '../../../core/theme/layout';
 
 const ENERGIES = [
@@ -58,6 +61,7 @@ export const TodayScreen = () => {
   const navigation = useNavigation<any>();
   
   const { scrollBottomPadding } = useLayoutTokens();
+  const { weightUnit, formatWithUnit } = useWeight();
   const [energyLevel, setEnergyLevel] = useState(2);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [strengthRating, setStrengthRating] = useState<number | null>(null);
@@ -67,6 +71,21 @@ export const TodayScreen = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const exerciseDetail = useExerciseDetail(selectedExercise);
   const justCompleted = useRef(false);
+
+  // Fetch exercise history for dynamic weights
+  const { data: exerciseHistory } = useQuery({
+    queryKey: ['exerciseHistory', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('exercise_history')
+        .select('exercise_id, last_weight, suggested_weight')
+        .eq('user_id', user.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
   // Fallback timeout to prevent infinite loading loop (especially Day 2 issue)
   useEffect(() => {
@@ -94,11 +113,12 @@ export const TodayScreen = () => {
         .filter((w) => w.adaptedSets || w.adaptedReps)
         .map((w) => ({
           exercise_id: w.exercise_name,
-          sets: w.adaptedSets,
-          reps: w.adaptedReps ? parseInt(w.adaptedReps, 10) || null : null,
+          sets: w.adaptedSets ? parseInt(String(w.adaptedSets), 10) : null,
+          reps: w.adaptedReps ? parseInt(String(w.adaptedReps), 10) || null : null,
+          weight: null, // TodayScreen doesn't log weight per set, it uses suggested baseline
           difficulty,
         }));
-      await upsertExerciseHistory(user.id, exercises);
+      await upsertExerciseHistory(user.id, exercises, energyLevel);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['exerciseHistory', user?.id] }),
   });
@@ -188,10 +208,15 @@ export const TodayScreen = () => {
 
     return (
       <>
-        {sections.map((section, sIndex) => (
-          <SectionBlock key={`sec-${sIndex}`} title={section.title}>
-            {section.data.map((w: AdaptedWorkout, i: number) => {
-              // console.log('[TodayScreen] Rendering Exercise Row:', w);
+        {sections.map((group, groupIdx) => (
+          <View key={group.title} style={{ marginBottom: spacing.lg }}>
+            <Text style={styles.sectionHeader}>{group.title}</Text>
+            {group.data.map((w, i) => {
+              const history = (exerciseHistory || []).find((h: any) => h.exercise_id === (w as any).poolId || h.exercise_id === w.exercise_name);
+              const isWarmup = group.title === 'Warmup';
+              const cat = (w as any).poolCategory;
+              const equipment = (w as any).poolEquipment;
+
               return (
                 <TouchableOpacity key={w.id} activeOpacity={0.8} onPress={() => setSelectedExercise((w as any).poolId)}>
                   <PrimaryCard state={w.isAdapted ? 'adapted' : 'default'} accentColor={w.isAdapted ? palette.accentAmber : undefined}>
@@ -202,61 +227,58 @@ export const TodayScreen = () => {
                           <Text style={styles.exerciseName} numberOfLines={2}>{w.exercise_name}</Text>
                           {w.isAdapted && <Badge label="ADAPTED" variant="warning" />}
                         </View>
+                        
+                        
+
                         <Text style={styles.exerciseSets}>
-                          {w.adaptedSets ? `${w.adaptedSets} sets` : ''}
-                          {w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}
-                          {w.duration ? ` · ${w.duration}` : ''}
-                          {w.restSec ? ` · ${w.restSec}s rest` : ''}
+                          {isWarmup ? `${(w as any).targetReps || '10-15'} reps · ${w.adaptedSets || 1} sets` : 
+                           `${w.adaptedSets || 3} sets${w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}`}
+                          {(w as any).duration ? ` · ${(w as any).duration}` : ''}
+                          {(w as any).restSec ? ` · ${(w as any).restSec}s rest` : ''}
                         </Text>
 
+                        {/* DYNAMIC WEIGHTS */}
+                        {history && (history.last_weight || history.suggested_weight) && (
+                          <View style={styles.dynamicWeightsRow}>
+                            <Text style={styles.weightText}>
+                              Last: <Text style={styles.weightValue}>{formatWithUnit(history.last_weight)}</Text>
+                            </Text>
+                            <Text style={styles.weightDivider}>|</Text>
+                            <Text style={styles.weightText}>
+                              Suggested: <Text style={styles.weightValueAccent}>{formatWithUnit(history.suggested_weight)}</Text>
+                            </Text>
+                          </View>
+                        )}
+
+
                         {/* CATEGORY & EQUIPMENT FIELDS */}
-                        {(((w as any).poolCategory) || ((w as any).poolEquipment?.length > 0)) && (
+                        {(cat || (equipment && equipment.length > 0)) && (
                           <View style={styles.aiMetaRow}>
-                            {((w as any).poolCategory) && (
+                            {cat && (
                               <View style={[styles.aiMetaBadge, { backgroundColor: palette.primarySoft }]}>
                                 <Text style={[styles.aiMetaBadgeText, { color: palette.primary }]}>
-                                  {String((w as any).poolCategory).toUpperCase()}
+                                  {String(cat).toUpperCase()}
                                 </Text>
                               </View>
                             )}
-                            {((w as any).poolEquipment?.length > 0) && (
+                            {equipment && equipment.length > 0 && (
                               <View style={styles.aiMetaBadge}>
                                 <Text style={styles.aiMetaBadgeText}>
-                                  🛠️ {((w as any).poolEquipment).join(', ')}
+                                  🛠️ {equipment.join(', ')}
                                 </Text>
                               </View>
                             )}
                           </View>
                         )}
-                        
-                        {/* NEW AI DATA FIELDS */}
-                        {(w.load || w.cue) && (
-                          <View style={styles.aiMetaRow}>
-                            {w.load && (
-                              <View style={styles.aiMetaBadge}>
-                                <Text style={styles.aiMetaBadgeText}>⚖️ {w.load}</Text>
-                              </View>
-                            )}
-                            {w.cue && (
-                              <Text style={styles.aiCueText} numberOfLines={1}>💡 {w.cue}</Text>
-                            )}
-                          </View>
-                        )}
-      
-                        {w.progression && (
-                          <View style={styles.progressionBox}>
-                            <Text style={styles.progressionText}>↑ Next: {w.progression}</Text>
-                          </View>
-                        )}
+
                       </View>
                     </View>
                   </PrimaryCard>
                 </TouchableOpacity>
               );
             })}
-          </SectionBlock>
+          </View>
         ))}
-
         {/* Start Workout Button */}
         <View style={styles.startWorkoutWrap}>
           <TouchableOpacity
@@ -270,13 +292,11 @@ export const TodayScreen = () => {
         </View>
 
         <View style={styles.actionSection}>
-        {renderFeedback('How was this workout?', DIFFICULTIES.map((d) => ({ key: d.value, label: d.label })), difficulty, setDifficulty)}
-        {renderFeedback('How is your energy?', ENERGIES.map((e) => ({ key: String(e.level), label: e.label })), String(energyLevel), (v: string) => setEnergyLevel(parseInt(v, 10)))}
-        {/* {renderRating('Strength Rating (1-10)', strengthRating, setStrengthRating)}
-        {renderRating('Pump Rating (1-10)', pumpRating, setPumpRating)} */}
-        <AuthButton title={completeToday.isPending || saveHistory.isPending ? 'Saving...' : 'Complete Day'} onPress={handleDone} disabled={completeToday.isPending || saveHistory.isPending} />
-      </View>
-    </>
+          {renderFeedback('How was this workout?', DIFFICULTIES.map((d) => ({ key: d.value, label: d.label })), difficulty, setDifficulty)}
+          {renderFeedback('How is your energy?', ENERGIES.map((e) => ({ key: String(e.level), label: e.label })), String(energyLevel), (v: string) => setEnergyLevel(parseInt(v, 10)))}
+          <AuthButton title={completeToday.isPending || saveHistory.isPending ? 'Saving...' : 'Complete Day'} onPress={handleDone} disabled={completeToday.isPending || saveHistory.isPending} />
+        </View>
+      </>
     );
   };
  
@@ -321,8 +341,16 @@ export const TodayScreen = () => {
         message="Session Complete!"
       />
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]} showsVerticalScrollIndicator={false}>
-        <GreetingHeader />
+      <View style={styles.floatingHeader}>
+        <BrandHeader />
+      </View>
+
+      <ScrollView 
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPadding + 80 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.mainContainer}>
+          <PredictionCard currentWorkoutType={adaptiveState.workoutType} />
 
         {lifecycleState === 'MISSED_TRAINING_DAY' && (
           <View style={styles.warningBanner}>
@@ -378,31 +406,8 @@ export const TodayScreen = () => {
         }
 
         {/* MEALS - Only show if not completed today, and usually on rest days they have specific meal plans too */}
-        {/* {lifecycleState !== 'SESSION_COMPLETED_TODAY' && (
-          <SectionBlock title="Meals">
-            {adaptivePlan.mealAdjustment !== 'none' && (
-              <View style={styles.mealAdjustBanner}>
-                <Text style={styles.mealAdjustText}>{MEAL_ADJUSTMENT_LABELS[adaptivePlan.mealAdjustment]}</Text>
-              </View>
-            )}
-            {dayDetail.meals.length === 0 ? (
-              <PrimaryCard><Text style={styles.emptyText}>No meals for today.</Text></PrimaryCard>
-            ) : (
-              dayDetail.meals.map((m) => (
-                <PrimaryCard key={m.id}>
-                  <View style={styles.mealRow}>
-                    <View style={styles.iconWrap}><Text style={styles.iconInner}>{MEAL_EMOJI[m.meal_type] || '🍽️'}</Text></View>
-                    <View style={styles.mealInfo}>
-                      <Text style={styles.mealType}>{m.meal_type.charAt(0).toUpperCase() + m.meal_type.slice(1)}</Text>
-                      <Text style={styles.mealTitle}>{m.title}</Text>
-                      {m.description ? <Text style={styles.mealDesc}>{m.description}</Text> : null}
-                    </View>
-                  </View>
-                </PrimaryCard>
-              ))
-            )}
-          </SectionBlock>
-        )} */}
+        {/* ... */}
+        </View>
       </ScrollView>
 
       {/* Exercise Detail Modal */}
@@ -522,20 +527,34 @@ function renderRating(title: string, value: number | null, onSelect: (val: numbe
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bgBase },
+  floatingHeader: {
+    position: 'absolute',
+    top: 50, // Adjusted for safe area
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
   scrollView: { flex: 1 },
+  scrollContent: { paddingTop: 110, paddingBottom: spacing.xxl }, // Adjusted for floating header
+  mainContainer: {
+    maxWidth: 680,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+  },
   center: { justifyContent: 'center', alignItems: 'center' },
   content: { padding: spacing.screenPadding, paddingTop: 40 },
   emptyText: { ...fonts.body, color: palette.textSecondary },
-  heroCustom: { paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, marginBottom: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: palette.borderSubtle },
-  heroInner: { flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
-  heroIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: palette.bgElevated, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md, borderWidth: 1, borderColor: palette.borderLight },
-  heroIcon: { fontSize: 24 },
+  heroCustom: { paddingVertical: spacing.xl, paddingHorizontal: spacing.xl, marginBottom: 24, borderRadius: radius.lg, borderWidth: 1, borderColor: palette.borderSubtle, alignItems: 'center', justifyContent: 'center' },
+  heroInner: { width: '100%', alignItems: 'center' },
+  heroIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: palette.bgElevated, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md, borderWidth: 1, borderColor: palette.borderLight },
+  heroIcon: { fontSize: 32 },
   heroTextBlock: { alignItems: 'center', width: '100%' },
-  heroMessage: { ...fonts.body, color: palette.textPrimary, lineHeight: 22, textAlign: 'center' },
-  heroBadges: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, justifyContent: 'center' },
+  heroMessage: { ...fonts.h3, color: palette.textPrimary, lineHeight: 28, textAlign: 'center' },
+  heroBadges: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, justifyContent: 'center' },
   iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: palette.bgElevated, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
   iconInner: { fontSize: 20 },
-  headerBlock: { marginBottom: spacing.sm, marginTop: spacing.sm, alignItems: 'center' },
+  headerBlock: { marginBottom: 24, marginTop: 8, alignItems: 'center' },
   headerCaption: { ...fonts.label, color: palette.primary, marginBottom: spacing.xs, textTransform: 'uppercase', letterSpacing: 1 },
   headerTitle: { ...fonts.h1, color: palette.textPrimary, textAlign: 'center' },
   headerMeta: { ...fonts.body, color: palette.textSecondary, marginTop: spacing.xs, textAlign: 'center' },
@@ -546,6 +565,23 @@ const styles = StyleSheet.create({
   exerciseNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   exerciseName: { ...fonts.h3, color: palette.textPrimary, flexShrink: 1 },
   exerciseSets: { ...fonts.body, color: palette.textSecondary, marginTop: 4 },
+  sectionHeader: {
+    ...fonts.label,
+    color: palette.textSecondary,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    fontWeight: '700',
+    opacity: 0.8,
+  },
+  
+  // Dynamic Weights Block
+  dynamicWeightsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  weightText: { ...fonts.label, color: palette.textSecondary, fontSize: 11, textTransform: 'uppercase' },
+  weightValue: { color: palette.textPrimary, fontWeight: '600' },
+  weightDivider: { color: palette.borderSubtle, fontSize: 12 },
+  weightValueAccent: { color: palette.primary, fontWeight: '700' },
   
   // AI Optional Fields Styles
   aiMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, flexWrap: 'wrap', gap: spacing.sm },
@@ -632,7 +668,6 @@ const styles = StyleSheet.create({
   tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xl },
   muscleTag: { backgroundColor: palette.bgElevated, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.md, borderWidth: 1, borderColor: palette.borderLight },
   muscleTagText: { ...fonts.label, color: palette.textPrimary, fontWeight: '600', textTransform: 'uppercase' },
-  sectionHeader: { ...fonts.label, color: palette.textSecondary, marginTop: spacing.md, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
   stepsWrap: { gap: spacing.md },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   stepDot: { ...fonts.body, color: palette.primary, marginRight: spacing.sm, width: 24, fontSize: 18 },

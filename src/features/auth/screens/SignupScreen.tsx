@@ -4,7 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import { AuthInput } from '../components/AuthInput';
 import { AuthButton } from '../components/AuthButton';
 import { authService } from '../services/authService';
-import { palette, fonts, spacing, radius, shadows } from '../../../core/theme/designTokens';
+import { palette, fonts, spacing } from '../../../core/theme/designTokens';
+import { BrandIdentity } from '../../../core/components/BrandIdentity';
 
 export const SignupScreen = () => {
   const navigation = useNavigation();
@@ -36,7 +37,7 @@ export const SignupScreen = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.illustrationArea}>
-          <Text style={styles.illustrationEmoji}>💪</Text>
+          <BrandIdentity size="large" vertical />
         </View>
 
         <View style={styles.header}>
