@@ -138,6 +138,18 @@ export function computeNextWorkout(
       uiSubLabel: 'Welcome back — restarting with a smart low-volume session',
     };
   }
+  
+  if (daysInactivity >= 3) {
+    return {
+      programIndex: getProgramIndexForType('full'),
+      workoutType: 'full',
+      reason: 'Restart after inactivity',
+      recoveryOptimized: false,
+      volumeModifier: LEVEL_VOLUME[state.level || 'beginner'],
+      uiLabel: GOAL_LABELS[state.goal || 'general_fitness'],
+      uiSubLabel: 'Restart after short break',
+    };
+  }
   // Determine standard volume based on level
   let volumeModifier = LEVEL_VOLUME[state.level || 'beginner'];
 
@@ -165,8 +177,8 @@ export function computeNextWorkout(
     if (lastType === 'upper' || lastType === 'upper_hypertrophy' || lastType === 'push' || lastType === 'pull') nextType = 'lower';
     else if (lastType === 'lower' || lastType === 'legs') nextType = 'cardio_core';
     else if (lastType === 'cardio_core' || lastType === 'cardio') nextType = 'upper';
-    else if (lastType === 'rest') nextType = 'upper';
-    else nextType = 'upper';
+    else if (lastType === 'rest') nextType = 'push';
+    else nextType = 'push';
   } else if (state.frequency === '5+') {
     // 5+ days: High frequency rotation PPL + Upper + Cardio
     if (lastType === 'push') nextType = 'pull';

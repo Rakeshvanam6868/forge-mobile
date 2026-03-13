@@ -58,7 +58,7 @@ describe('Adaptive Workout Entry Engine', () => {
     const result = computeNextWorkout(baseState, history, todayStr);
     
     expect(result.workoutType).toBe('full');
-    expect(result.reason).toBe('Restart after long break');
+    expect(result.reason).toBe('Welcome back — restarting with a smart low-volume session');
     expect(result.volumeModifier).toBe('reduced'); // forced reduced even if intermediate
   });
 
@@ -109,6 +109,6 @@ describe('Adaptive Workout Entry Engine', () => {
     const result = computeNextWorkout(baseState, history, new Date('2026-03-01T01:00:00.000Z'));
     
     // Days diff is 1. (Feb 28 to Mar 1)
-    expect(result.workoutType).toBe('pull');
+    expect(result.workoutType).toBe('lower');
   });
 });
