@@ -11,79 +11,34 @@ import { computeNextWorkout, UserTrainingState, UserWorkoutHistory, WorkoutType,
 import { getExercises, PoolExercise, MuscleGroup, EXERCISE_POOL } from './src/features/program/data/exercisePools';
 import { computeAdaptivePlan, AdaptiveInput } from './src/features/program/services/adaptiveEngine';
 
-// ═══════════════════════════════════════════════
-// Helper: Re-implementing Template Logic for Simulation
-// ═══════════════════════════════════════════════
+// Mock Supabase to avoid ESM parsing errors in Jest
+jest.mock('./src/core/supabase/client', () => ({
+    supabase: {}
+}));
 
-function formatEx(ex: PoolExercise, level: string) {
-    let sets = ex.defaultSets;
-    if (level === 'advanced' && sets && sets >= 3) {
-        sets += 1;
-    }
-    return {
-        name: ex.name,
-        sets: sets,
-        reps: ex.defaultReps,
-        equipment: ex.equipment,
-        category: ex.category,
-        muscleGroups: ex.muscleGroup
-    };
-}
+import { getTemplateForType } from './src/features/program/services/programGenerator';
+
+// ═══════════════════════════════════════════════
+// Helper: Wraps Real Production Logic for Testing
+// ═══════════════════════════════════════════════
 
 function simulateWorkout(type: WorkoutType, level: TrainingLevel, location: string, goal: Goal) {
-    let primaryMg: MuscleGroup[] = [];
-    let secondaryMg: MuscleGroup[] = [];
-    let focus = 'strength';
+    const dayTemplate = getTemplateForType(type, level, location, goal);
+    
+    // Enrich the template with raw pool data so tests can assert muscle groups/equipment
+    const enrichedWorkouts = dayTemplate.workouts.map(w => {
+        const poolEx = EXERCISE_POOL.find(p => p.id === w.exercise_id || p.name === w.exercise_name);
+        return {
+            name: poolEx?.name || w.exercise_name,
+            sets: w.sets,
+            reps: w.reps,
+            equipment: poolEx?.equipment || [],
+            category: poolEx?.category || 'unknown',
+            muscleGroups: poolEx?.muscleGroup || []
+        };
+    });
 
-    switch (type) {
-        case 'push': primaryMg = ['chest', 'shoulders']; secondaryMg = ['arms']; break;
-        case 'pull': primaryMg = ['back']; secondaryMg = ['arms']; break;
-        case 'legs': primaryMg = ['legs']; secondaryMg = ['core']; break;
-        case 'upper': primaryMg = ['chest', 'back', 'shoulders']; secondaryMg = ['arms']; break;
-        case 'full': primaryMg = ['chest', 'back', 'legs', 'shoulders']; secondaryMg = ['core', 'arms']; break;
-        case 'lower': primaryMg = ['legs']; secondaryMg = ['core']; break;
-        case 'cardio_core': primaryMg = ['core', 'full_body']; focus = 'cardio'; break;
-        case 'mobility': primaryMg = ['mobility']; focus = 'mobility'; break;
-        case 'rest': primaryMg = ['mobility']; focus = 'rest'; break;
-        default: focus = 'rest';
-    }
-
-    if (focus !== 'strength') {
-        const workouts: any[] = [];
-        const cardio = getExercises(primaryMg, 'core_cardio', location, 1)[0];
-        if (cardio) workouts.push(formatEx(cardio, level));
-        return { type, workouts };
-    }
-
-    const warmup = getExercises(primaryMg.concat(['mobility'] as MuscleGroup[]), 'warmup', location, 1)[0];
-    const compound = getExercises(primaryMg, 'compound', location, 1)[0];
-    const acc1 = getExercises(primaryMg, 'accessory', location, 1)[0];
-    let acc2 = getExercises(secondaryMg, 'accessory', location, 1)[0];
-    if (!acc2 || acc2.name === acc1?.name) acc2 = getExercises(primaryMg, 'isolation', location, 1)[0];
-    let iso = getExercises(secondaryMg, 'isolation', location, 1)[0];
-    if (!iso || iso.name === acc2?.name) iso = getExercises(primaryMg, 'isolation', location, 2)[1];
-    const core = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1)[0];
-
-    const workouts: any[] = [];
-    if (warmup) workouts.push(formatEx(warmup, level));
-    if (compound) workouts.push(formatEx(compound, level));
-    if (acc1) workouts.push(formatEx(acc1, level));
-    if (acc2) workouts.push(formatEx(acc2, level));
-
-    if (level === 'intermediate' || level === 'advanced') {
-        if (iso) workouts.push(formatEx(iso, level));
-        const extraAcc = getExercises(secondaryMg, 'accessory', location, 2)[1];
-        if (extraAcc && extraAcc.name !== acc1?.name && extraAcc.name !== acc2?.name) workouts.push(formatEx(extraAcc, level));
-    }
-    if (level === 'advanced') {
-        const extraIso = getExercises(primaryMg, 'isolation', location, 3)[2];
-        if (extraIso) workouts.push(formatEx(extraIso, level));
-    }
-    if (core && (level === 'advanced' || type === 'full' || type === 'legs' || level === 'intermediate')) {
-        workouts.push(formatEx(core, level));
-    }
-
-    return { type, workouts };
+    return { type, workouts: enrichedWorkouts };
 }
 
 // ═══════════════════════════════════════════════
@@ -125,16 +80,17 @@ describe('STEP 2 — EQUIPMENT FILTERING', () => {
     const homeScenarios = scenarios.filter(s => s.location === 'Home');
 
     homeScenarios.forEach(s => {
-        test(`Scenario ${s.id}: Home exercises must NOT use machine/cable/smith`, () => {
+        test(`Scenario ${s.id}: Home exercises must have valid home equipment tags`, () => {
             const state: UserTrainingState = { level: s.level, frequency: s.freq, lastWorkout: 'none', goal: s.goal };
             const next = computeNextWorkout(state, {}, new Date());
             const workout = simulateWorkout(next.workoutType, s.level, s.location, s.goal);
 
+            const allowedHome = ['bodyweight', 'dumbbell', 'band'];
             const violations: string[] = [];
             workout.workouts.forEach((w: any) => {
-                const disallowed = w.equipment.some((eq: string) => eq === 'machine' || eq === 'cable');
-                if (disallowed) {
-                    violations.push(`"${w.name}" uses disallowed equipment: ${w.equipment.join(', ')}`);
+                const hasValidHomeOption = w.equipment.some((eq: string) => allowedHome.includes(eq));
+                if (!hasValidHomeOption) {
+                    violations.push(`"${w.name}" ONLY has disallowed equipment: ${w.equipment.join(', ')}`);
                 }
             });
 
@@ -151,10 +107,10 @@ describe('STEP 2 — EQUIPMENT FILTERING', () => {
 });
 
 // ═══════════════════════════════════════════════
-// STEP 3 — VALIDATE EXERCISE COUNT
+// STEP 3 — VALIDATE EXERCISE COUNT & DUPLICATE PREVENTION
 // ═══════════════════════════════════════════════
 
-describe('STEP 3 — EXERCISE COUNT VALIDATION', () => {
+describe('STEP 3 — EXERCISE COUNT & DUPLICATE PREVENTION', () => {
     const expectedRanges: Record<string, [number, number]> = {
         beginner: [5, 6],
         intermediate: [6, 7],
@@ -162,7 +118,7 @@ describe('STEP 3 — EXERCISE COUNT VALIDATION', () => {
     };
 
     scenarios.forEach(s => {
-        test(`Scenario ${s.id}: ${s.level} should have ${expectedRanges[s.level][0]}-${expectedRanges[s.level][1]} exercises`, () => {
+        test(`Scenario ${s.id}: ${s.level} should have ${expectedRanges[s.level][0]}-${expectedRanges[s.level][1]} exercises and NO duplicates`, () => {
             const state: UserTrainingState = { level: s.level, frequency: s.freq, lastWorkout: 'none', goal: s.goal };
             const next = computeNextWorkout(state, {}, new Date());
             const workout = simulateWorkout(next.workoutType, s.level, s.location, s.goal);
@@ -170,7 +126,15 @@ describe('STEP 3 — EXERCISE COUNT VALIDATION', () => {
             const count = workout.workouts.length;
             const [min, max] = expectedRanges[s.level];
 
-            // Only validate strength-type workouts (not rest/cardio/mobility)
+            // 1. Check Duplicates
+            const names = workout.workouts.map((w: any) => w.name);
+            const uniqueNames = new Set(names);
+            if (uniqueNames.size !== names.length) {
+                console.log(`\n[DUPLICATE FOUND] Scenario ${s.id}: ${names.join(', ')}`);
+            }
+            expect(uniqueNames.size).toBe(names.length);
+
+            // 2. Check Capacity (Only validate strength-type workouts)
             if (['rest', 'mobility', 'cardio_core'].includes(next.workoutType)) {
                 console.log(`\n[EXERCISE COUNT] Scenario ${s.id}: Skipped (${next.workoutType} day)`);
                 return;
@@ -378,5 +342,49 @@ describe('STEP 7 — TIMELINE SIMULATION', () => {
         }
 
         expect(workoutsCompleted.length).toBe(6);
+    });
+});
+
+// ═══════════════════════════════════════════════
+// STEP 8 — VALIDATE WEEKLY MUSCLE COVERAGE
+// ═══════════════════════════════════════════════
+
+describe('STEP 8 — WEEKLY MUSCLE COVERAGE', () => {
+    test('Should force a Legs day if legs were skipped for >7 days', () => {
+        const state: UserTrainingState = { level: 'intermediate', frequency: '3-4', lastWorkout: 'push', goal: 'muscle_gain' };
+        
+        // Simulating 2 recent workouts in the last week, both upper body
+        const history: UserWorkoutHistory = {
+            lastCompletedWorkoutType: 'pull',
+            lastCompletionDate: '2026-03-12',
+            recentWorkouts: [
+                { type: 'push', date: '2026-03-08' },
+                { type: 'pull', date: '2026-03-12' }
+            ]
+        };
+        
+        const next = computeNextWorkout(state, history, '2026-03-13');
+        console.log(`\n[MUSCLE COVERAGE] Untrained legs over 7 days -> Next: ${next.workoutType} | Reason: ${next.reason}`);
+        
+        expect(next.workoutType).toBe('legs');
+        expect(next.reason).toContain('Targeting untrained muscles: legs');
+    });
+
+    test('Should force Full body if 3+ major muscles missed for >7 days', () => {
+        const state: UserTrainingState = { level: 'intermediate', frequency: '1-2', lastWorkout: 'cardio', goal: 'fat_loss' };
+        
+        const history: UserWorkoutHistory = {
+            lastCompletedWorkoutType: 'cardio',
+            lastCompletionDate: '2026-03-12',
+            recentWorkouts: [
+                { type: 'cardio', date: '2026-03-10' },
+                { type: 'cardio', date: '2026-03-12' }
+            ]
+        };
+        const next = computeNextWorkout(state, history, '2026-03-14');
+        console.log(`\n[MUSCLE COVERAGE] Untrained chest, back, legs, shoulders -> Next: ${next.workoutType} | Reason: ${next.reason}`);
+        
+        expect(next.workoutType).toBe('full');
+        expect(next.reason).toContain('Targeting untrained muscles: chest, back, legs, shoulders');
     });
 });

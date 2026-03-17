@@ -120,15 +120,21 @@ export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
     const lastSessionDifficulty = getAverageDifficulty(exerciseHistory);
 
     if (lastSessionDifficulty === 'easy') {
-      progression = 'increase_reps';
-      volumeMultiplier = 1.05;
-      systemMessage = '💪 Last session felt easy — adding slight overload.';
+      if (lastEnergy >= 3) {
+        progression = 'increase_reps';
+        volumeMultiplier = 1.1; // Small but realistic 10% increase
+        systemMessage = '⚡ High energy and last session felt easy — adding slight progressive overload.';
+      } else {
+        progression = 'increase_reps';
+        volumeMultiplier = 1.05; // Very small 5% bump
+        systemMessage = '💪 Last session felt easy — nudging the volume up slightly.';
+      }
     } else if (lastSessionDifficulty === 'hard') {
       // Feature 4: Recovery Aware Volume Adjustment
       if (lastEnergy <= 1) {
         progression = 'deload';
-        volumeMultiplier = 0.75; // Drop 25% volume (usually translates to 1 fewer set per exercise)
-        systemMessage = '🔋 You pushed hard last time but energy is low today. Volume reduced to optimize recovery.';
+        volumeMultiplier = 0.8; // Realistic 20% drop to optimize recovery without stopping entirely
+        systemMessage = '🔋 You pushed hard last time and energy is low today. Volume reduced to optimize recovery.';
       } else {
         progression = 'deload';
         volumeMultiplier = 0.9;

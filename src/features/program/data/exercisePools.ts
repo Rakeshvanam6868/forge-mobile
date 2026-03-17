@@ -84,28 +84,40 @@ export const getExercises = (
   muscleGroups: MuscleGroup[], 
   category: MovementCategory, 
   location: string, 
-  count: number = 1
+  count: number = 1,
+  excludeIds?: Set<string>
 ): PoolExercise[] => {
   const isHome = location.toLowerCase() === 'home';
+  const allowedHomeEquipment = ['bodyweight', 'dumbbell', 'band'];
   
   const validExercises = EXERCISE_POOL.filter(ex => {
-    // Check muscle group match
+    // 1. Deduplication check
+    if (excludeIds && excludeIds.has(ex.id)) return false;
+
+    // 2. Check muscle group match
     const matchesMuscleGroup = ex.muscleGroup.some(mg => muscleGroups.includes(mg));
     if (!matchesMuscleGroup) return false;
     
-    // Check category match
+    // 3. Check category match
     if (ex.category !== category) return false;
     
-    // Check equipment constraint
+    // 4. Check equipment constraint
     if (isHome) {
-      const usesMachineOrCable = ex.equipment.some(eq => eq === 'machine' || eq === 'cable');
-      // If it only has machines, exclude it
-      if (usesMachineOrCable && !ex.equipment.some(eq => eq === 'bodyweight' || eq === 'dumbbell' || eq === 'band')) {
-        return false;
-      }
+      // Must have at least one allowed home equipment (bodyweight, dumbbell, band). Reject barbell, machine, cable.
+      const hasHomeEquipment = ex.equipment.some(eq => allowedHomeEquipment.includes(eq as string));
+      if (!hasHomeEquipment) return false;
     }
     
     return true;
+  }).map(ex => {
+    // Format output to remove forbidden equipment strings if at home
+    if (isHome) {
+      return {
+        ...ex,
+        equipment: ex.equipment.filter(eq => allowedHomeEquipment.includes(eq as string))
+      };
+    }
+    return ex;
   });
 
   // Shuffle and return requested count

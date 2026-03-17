@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "TrainSmarter",
+    "name": "Trainzy",
     "slug": "FitnessApp",
     "version": "1.0.0",
-    "scheme": "trainsmarter",
+    "scheme": "trainzy",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.trainsmarter.trainsmarter",
+      "package": "com.trainzy.trainzy",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png"
@@ -38,7 +38,7 @@
         "@sentry/react-native",
         {
           "organization": "rakeshvanam",
-          "project": "trainsmarter"
+          "project": "trainzy"
         }
       ]
     ]

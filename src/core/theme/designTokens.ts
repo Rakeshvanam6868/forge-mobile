@@ -1,7 +1,7 @@
 /**
  * Design Tokens — Dark Theme SaaS Aesthetic
  *
- * Matches the TrainSmarter landing page:
+ * Matches the Trainzy landing page:
  * - Pure black backgrounds layered with depth
  * - Ultra-thin borders (rgba 255,255,255,0.05)
  * - #FF3B3B red accent & glow shadows

@@ -18,11 +18,11 @@ export const BrandIdentity: React.FC<BrandIdentityProps> = ({ size = 'small', ve
   return (
     <View style={[styles.container, vertical && styles.vertical, style]}>
       <Image 
-        source={require('../../../assets/TrainSmarter-noBG.png')} 
+        source={require('../../../assets/Trainzy-noBG.png')} 
         style={{ width: logoSize, height: logoSize, marginRight: vertical ? 0 : 12, marginBottom: vertical ? 12 : 0 }}
         resizeMode="contain"
       />
-      <Text style={[styles.brandText, { fontSize }]}>TrainSmarter</Text>
+      <Text style={[styles.brandText, { fontSize }]}>Trainzy</Text>
     </View>
   );
 };

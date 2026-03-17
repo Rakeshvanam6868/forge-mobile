@@ -210,7 +210,7 @@ export const generateProgram = async (
 // Base Templates per Muscle Group (Adaptive blocks)
 // ═══════════════════════════════════════════════
 
-function getTemplateForType(type: WorkoutType, level: string, location: string, goal: string): DayTemplate {
+export function getTemplateForType(type: WorkoutType, level: string, location: string, goal: string): DayTemplate {
   const isFatLoss = goal === 'fat_loss';
   
   // Mapping WorkoutTypes to MuscleGroups
@@ -267,89 +267,119 @@ function getTemplateForType(type: WorkoutType, level: string, location: string, 
       break;
   }
 
+  const generatedWorkouts: WorkoutTemplate[] = [];
+  const excludeIds = new Set<string>();
+
+  const addExercise = (exercise?: PoolExercise) => {
+    if (exercise) {
+      excludeIds.add(exercise.id);
+      generatedWorkouts.push(formatEx(exercise, level));
+      return true;
+    }
+    return false;
+  };
+
   // Handle Cardio/Mobility/Rest dynamically but simpler
   if (focus_type !== 'strength') {
-    const warmup = getExercises(primaryMuscleGroups, 'warmup', location, 1)[0] || getExercises(['mobility'] as MuscleGroup[], 'warmup', location, 1)[0];
-    const core1 = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1)[0];
-    const core2 = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 2)[1];
-    const cardio = getExercises(['full_body'] as MuscleGroup[], 'core_cardio', location, 1)[0];
+    const warmup = getExercises(primaryMuscleGroups, 'warmup', location, 1, excludeIds)[0] || getExercises(['mobility'] as MuscleGroup[], 'warmup', location, 1, excludeIds)[0];
+    addExercise(warmup);
     
-    const workouts = [];
-    if (warmup) workouts.push(formatEx(warmup, level));
     if (focus_type === 'cardio') {
-      if (cardio) workouts.push(formatEx(cardio, level));
-      if (core1) workouts.push(formatEx(core1, level));
-      if (core2 && level === 'advanced') workouts.push(formatEx(core2, level));
+      const cardio = getExercises(['full_body'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
+      const core1 = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
+      const core2 = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
+      
+      addExercise(cardio);
+      addExercise(core1);
+      if (level === 'advanced') addExercise(core2);
     } else {
       // Mobility/Rest
-      const stretch1 = getExercises(['mobility'] as MuscleGroup[], 'core_cardio', location, 1)[0];
-      const stretch2 = getExercises(['mobility'] as MuscleGroup[], 'core_cardio', location, 2)[1];
-      if (stretch1) workouts.push(formatEx(stretch1, level));
-      if (stretch2) workouts.push(formatEx(stretch2, level));
+      const stretch1 = getExercises(['mobility'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
+      const stretch2 = getExercises(['mobility'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
+      addExercise(stretch1);
+      addExercise(stretch2);
     }
-    return day(title, focus_type, workouts);
+    return day(title, focus_type, generatedWorkouts);
   }
 
-  // STRUCTURAL LOGIC FOR STRENGTH (Warmup -> Compound -> Accessory -> Accessory -> Isolation -> Core/Cardio)
-  // Ensure we fallback to 'full_body' group or 'mobility' if specific pulls fail
+  // STRUCTURAL LOGIC FOR STRENGTH (Warmup -> Compound -> Accessory -> Isolation -> Core/Cardio)
+  // Ensure we fallback to 'full_body' group or 'core' if specific pulls fail
   const safePrimary = primaryMuscleGroups.length > 0 ? primaryMuscleGroups : (['full_body'] as MuscleGroup[]);
   const safeSecondary = secondaryMuscleGroups.length > 0 ? secondaryMuscleGroups : (['core'] as MuscleGroup[]);
 
   // 1. Warmup
-  const warmupEx = getExercises(safePrimary.concat(['mobility'] as MuscleGroup[]), 'warmup', location, 1)[0] || EXERCISE_POOL.find((e: PoolExercise) => e.category === 'warmup')!;
-  
-  // 2. Compound
-  const compoundEx = getExercises(safePrimary, 'compound', location, 1)[0] || getExercises(['full_body'] as MuscleGroup[], 'compound', location, 1)[0];
-  
-  // 3. Accessory 1
-  const accessoryEx1 = getExercises(safePrimary, 'accessory', location, 1)[0] || getExercises(safePrimary, 'compound', location, 2)[1];
-  
-  // 4. Accessory 2 (From primary or secondary)
-  let accessoryEx2 = getExercises(safeSecondary, 'accessory', location, 1)[0];
-  if (!accessoryEx2 || accessoryEx2.name === accessoryEx1?.name) {
-    accessoryEx2 = getExercises(safePrimary, 'isolation', location, 1)[0];
-  }
+  let warmupEx = getExercises(safePrimary.concat(['mobility'] as MuscleGroup[]), 'warmup', location, 1, excludeIds)[0] || EXERCISE_POOL.find((e: PoolExercise) => e.category === 'warmup')!;
+  addExercise(warmupEx);
 
-  // 5. Isolation
-  let isolationEx = getExercises(safeSecondary, 'isolation', location, 1)[0];
-  if (!isolationEx || isolationEx.name === accessoryEx2?.name) {
-      isolationEx = getExercises(safePrimary, 'isolation', location, 2)[1];
-  }
-
-  // 6. Optional Core
-  const coreEx = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1)[0];
-
-  const generatedWorkouts: WorkoutTemplate[] = [];
-  
-  // Beginner Base (4-5 exercises)
-  if (warmupEx) generatedWorkouts.push(formatEx(warmupEx, level));
-  if (compoundEx) generatedWorkouts.push(formatEx(compoundEx, level));
-  if (accessoryEx1) generatedWorkouts.push(formatEx(accessoryEx1, level));
-  if (accessoryEx2) generatedWorkouts.push(formatEx(accessoryEx2, level));
-
-  // Intermediate Adds Isolation (6 exercises total)
-  if (level === 'intermediate' || level === 'advanced') {
-    if (isolationEx) generatedWorkouts.push(formatEx(isolationEx, level));
-    const extraAcc = getExercises(safeSecondary, 'accessory', location, 2)[1];
-    if (extraAcc && extraAcc.name !== accessoryEx1?.name && extraAcc.name !== accessoryEx2?.name) {
-      generatedWorkouts.push(formatEx(extraAcc, level));
+  // 2. Compounds & Accessories
+  if (type === 'full') {
+    // Explicit primary mapping for full body to guarantee chest, back, legs, shoulders
+    const fullBodyTargets = ['legs', 'chest', 'back', 'shoulders'] as MuscleGroup[];
+    for (const target of fullBodyTargets) {
+      let comp = getExercises([target], 'compound', location, 1, excludeIds)[0];
+      if (!comp) comp = getExercises([target], 'accessory', location, 1, excludeIds)[0];
+      if (!comp) comp = getExercises([target], 'isolation', location, 1, excludeIds)[0];
+      addExercise(comp); // Adds 4 exercises
     }
+  } else {
+    // Standard Split Engine: Compound -> Accessory1 -> Accessory2 -> Isolation1
+    let compoundEx = getExercises(safePrimary, 'compound', location, 1, excludeIds)[0];
+    if (!compoundEx) compoundEx = getExercises(['full_body'] as MuscleGroup[], 'compound', location, 1, excludeIds)[0];
+    addExercise(compoundEx);
+
+    let accessoryEx1 = getExercises(safePrimary, 'accessory', location, 1, excludeIds)[0];
+    if (!accessoryEx1) accessoryEx1 = getExercises(safePrimary, 'compound', location, 1, excludeIds)[0];
+    addExercise(accessoryEx1);
+
+    let accessoryEx2 = getExercises(safeSecondary, 'accessory', location, 1, excludeIds)[0];
+    if (!accessoryEx2) accessoryEx2 = getExercises(safePrimary, 'isolation', location, 1, excludeIds)[0];
+    addExercise(accessoryEx2);
+
+    let isolationEx = getExercises(safeSecondary, 'isolation', location, 1, excludeIds)[0];
+    if (!isolationEx) isolationEx = getExercises(safePrimary, 'isolation', location, 1, excludeIds)[0];
+    addExercise(isolationEx);
   }
 
-  // Advanced Gets Extra Isolation and Core (7-9 exercises total)
-  if (level === 'advanced') {
-    const extraIso = getExercises(safePrimary, 'isolation', location, 3)[2];
-    if (extraIso && extraIso.name !== isolationEx?.name) {
-      generatedWorkouts.push(formatEx(extraIso, level));
-    }
+  // 3. Optional Core
+  let coreEx = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
+  if (!coreEx) coreEx = getExercises(['full_body'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
+  addExercise(coreEx);
+
+  // 4. Enforce Exact Exercise Counts
+  const targetCounts: Record<string, number> = {
+    beginner: 5,
+    intermediate: 6,
+    advanced: 7,
+  };
+  const targetCount = targetCounts[level] || 5;
+
+  while (generatedWorkouts.length < targetCount) {
+    // Fallback: Try isolation from secondary, then primary, then core, then full_body
+    let fallback = getExercises(safeSecondary, 'isolation', location, 1, excludeIds)[0];
+    if (!fallback) fallback = getExercises(safePrimary, 'isolation', location, 1, excludeIds)[0];
+    if (!fallback) fallback = getExercises(safeSecondary, 'accessory', location, 1, excludeIds)[0];
+    if (!fallback) fallback = getExercises(safePrimary, 'accessory', location, 1, excludeIds)[0];
+    if (!fallback) fallback = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
+    if (!fallback) fallback = getExercises(['full_body'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
+    
+    // If pool is completely exhausted, break to prevent infinite loop
+    if (!fallback) break;
+    
+    addExercise(fallback);
   }
 
-  // Core (Always for advanced, conditional for others based on split)
-  if (coreEx && (level === 'advanced' || type === 'full' || type === 'legs' || type === 'lower' || level === 'intermediate')) {
-    generatedWorkouts.push(formatEx(coreEx, level));
+  // 5. Hard cap max limit
+  const maxCounts: Record<string, number> = {
+    beginner: 6,
+    intermediate: 7,
+    advanced: 9,
+  };
+  const maxCount = maxCounts[level] || 6;
+  if (generatedWorkouts.length > maxCount) {
+    generatedWorkouts.splice(maxCount, generatedWorkouts.length - maxCount);
   }
 
-  return day(title, focus_type, generatedWorkouts.filter(Boolean));
+  return day(title, focus_type, generatedWorkouts);
 }
 
 // Convert PoolExercise to WorkoutTemplate

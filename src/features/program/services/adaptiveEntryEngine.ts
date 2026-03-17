@@ -30,6 +30,7 @@ export type UserWorkoutHistory = {
   skippedDaysInRow?: number;
   lastDifficulty?: 'easy' | 'perfect' | 'hard' | string;
   lastEnergy?: 'low' | 'medium' | 'high' | string;
+  recentWorkouts?: { type: WorkoutType, date: string }[];
 };
 
 export type AdaptiveWorkoutOutput = {
@@ -95,6 +96,19 @@ function getProgramIndexForType(type: WorkoutType): number {
   return 0;
 }
 
+function getMuscleGroupsForType(type: WorkoutType): string[] {
+  switch (type) {
+    case 'push': return ['chest', 'shoulders', 'arms'];
+    case 'pull': return ['back', 'arms'];
+    case 'legs':
+    case 'lower': return ['legs', 'core'];
+    case 'upper':
+    case 'upper_hypertrophy': return ['chest', 'back', 'shoulders', 'arms'];
+    case 'full': return ['chest', 'back', 'legs', 'shoulders', 'core', 'arms'];
+    default: return [];
+  }
+}
+
 export function computeNextWorkout(
   state: UserTrainingState,
   history: UserWorkoutHistory,
@@ -126,30 +140,6 @@ export function computeNextWorkout(
     };
   }
 
-  // 3️⃣ INACTIVITY DETECTION
-  if (daysInactivity >= 7) {
-    return {
-      programIndex: getProgramIndexForType('full'),
-      workoutType: 'full',
-      reason: 'Welcome back — restarting with a smart low-volume session',
-      recoveryOptimized: true,
-      volumeModifier: 'reduced', // Forced reduction
-      uiLabel: GOAL_LABELS[state.goal || 'general_fitness'],
-      uiSubLabel: 'Welcome back — restarting with a smart low-volume session',
-    };
-  }
-  
-  if (daysInactivity >= 3) {
-    return {
-      programIndex: getProgramIndexForType('full'),
-      workoutType: 'full',
-      reason: 'Restart after inactivity',
-      recoveryOptimized: false,
-      volumeModifier: LEVEL_VOLUME[state.level || 'beginner'],
-      uiLabel: GOAL_LABELS[state.goal || 'general_fitness'],
-      uiSubLabel: 'Restart after short break',
-    };
-  }
   // Determine standard volume based on level
   let volumeModifier = LEVEL_VOLUME[state.level || 'beginner'];
 
@@ -162,6 +152,28 @@ export function computeNextWorkout(
     volumeModifier = 'normal';
   }
 
+  // 3️⃣ INACTIVITY DETECTION
+  if (daysInactivity >= 7) {
+    return {
+      programIndex: getProgramIndexForType('full'),
+      workoutType: 'full',
+      reason: 'Welcome back — restarting with a smart low-volume session',
+      recoveryOptimized: true,
+      volumeModifier: 'reduced', // Forced reduction
+      uiLabel: GOAL_LABELS[state.goal || 'general_fitness'],
+      uiSubLabel: 'Welcome back — restarting with a smart low-volume session',
+    };
+  } else if (daysInactivity >= 3) {
+    return {
+      programIndex: getProgramIndexForType('full'),
+      workoutType: 'full',
+      reason: 'Restart after inactivity',
+      recoveryOptimized: true,
+      volumeModifier: volumeModifier || (LEVEL_VOLUME[state.level || 'beginner']),
+      uiLabel: GOAL_LABELS[state.goal || 'general_fitness'],
+      uiSubLabel: 'Restart after short break',
+    };
+  }
   // Base Sequence Map
   let nextType: WorkoutType = 'push';
   
@@ -203,6 +215,40 @@ export function computeNextWorkout(
     else nextType = 'push';
   }
 
+  // ────────────────────────────────────
+  // NEW FEATURE: Weekly Muscle Coverage Engine
+  // ────────────────────────────────────
+  const MAJOR_MUSCLES = ['chest', 'back', 'legs', 'shoulders'];
+  let coverageReason = '';
+
+  if (history.recentWorkouts && history.recentWorkouts.length > 0) {
+    const trainedMuscles = new Set<string>();
+    
+    // Check over last 7 days
+    history.recentWorkouts.forEach(w => {
+      const daysAgo = getDaysDifference(today, normalizeDate(w.date));
+      if (daysAgo <= 7) {
+        getMuscleGroupsForType(w.type).forEach(m => trainedMuscles.add(m));
+      }
+    });
+
+    const untrainedMajor = MAJOR_MUSCLES.filter(m => !trainedMuscles.has(m));
+    
+    // If a major muscle group is completely untrained in the last 7 days, override NEXT type
+    if (untrainedMajor.length > 0) {
+      if (untrainedMajor.length >= 3) {
+         nextType = 'full';
+      } else if (untrainedMajor.includes('legs')) {
+         nextType = 'legs';
+      } else if (untrainedMajor.includes('back')) {
+         nextType = 'pull';
+      } else {
+         nextType = 'push';
+      }
+      coverageReason = `Targeting untrained muscles: ${untrainedMajor.join(', ')}`;
+    }
+  }
+
   // Edge case: Corrupted onboarding data safeguard
   let safeGoal = state.goal;
   if (!safeGoal) safeGoal = 'general_fitness';
@@ -210,10 +256,10 @@ export function computeNextWorkout(
   return {
     programIndex: getProgramIndexForType(nextType),
     workoutType: nextType,
-    reason: hasHistory ? 'Based on your last session' : 'Based on onboarding profile',
+    reason: coverageReason || (hasHistory ? 'Based on your last session' : 'Based on onboarding profile'),
     recoveryOptimized: nextType === 'mobility' || nextType === 'rest',
     volumeModifier,
     uiLabel: GOAL_LABELS[safeGoal],
-    uiSubLabel: hasHistory ? 'Based on your last session' : 'Optimized for your profile',
+    uiSubLabel: coverageReason ? `Optimized coverage: ${nextType} focus` : (hasHistory ? 'Based on your last session' : 'Optimized for your profile'),
   };
 }
