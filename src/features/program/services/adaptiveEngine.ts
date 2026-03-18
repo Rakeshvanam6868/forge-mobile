@@ -1,0 +1,274 @@
+/**
+ * Adaptive Engine — Phase 5
+ *
+ * PURE, DETERMINISTIC, SIDE-EFFECT FREE.
+ * All adaptation is computed in-memory. Base program is NEVER mutated.
+ */
+
+import { Workout, Meal } from '../hooks/useDayDetail';
+import { EXERCISE_POOL } from '../data/exercisePools';
+
+// ═══════════════════════════════════════════════
+// Types
+// ═══════════════════════════════════════════════
+
+export type Difficulty = 'easy' | 'medium' | 'hard';
+
+export type ExerciseHistoryRecord = {
+  exercise_id: string;
+  last_sets: number | null;
+  last_reps: number | null;
+  last_weight: number | null;
+  difficulty: Difficulty;
+};
+
+export type AdaptiveInput = {
+  focusType: string;       // strength | cardio | mobility | rest
+  baseWorkouts: Workout[];
+  baseMeals: Meal[];
+  streak: number;
+  energyTrend: number[];   // last 2 energy values (1=low, 2=avg, 3=high), newest first
+  exerciseHistory: ExerciseHistoryRecord[];
+  goal: string;            // 'Weight Loss' | 'Muscle Gain' | 'General Fitness'
+  missedYesterday: boolean;
+};
+
+export type Intensity = 'low' | 'normal' | 'high';
+export type Progression = 'none' | 'increase_reps' | 'increase_sets' | 'deload';
+export type MealAdjustment = 'calorie_up' | 'calorie_down' | 'none';
+
+export type AdaptivePlan = {
+  intensity: Intensity;
+  volumeMultiplier: number;
+  progression: Progression;
+  recoveryMode: boolean;
+  mealAdjustment: MealAdjustment;
+  systemMessage: string;
+};
+
+export type AdaptedWorkout = Workout & {
+  adaptedSets: number | null;
+  adaptedReps: string | null;
+  isAdapted: boolean;
+};
+
+// ═══════════════════════════════════════════════
+// Core Pure Function
+// ═══════════════════════════════════════════════
+
+export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
+  const { focusType, streak, energyTrend, exerciseHistory, goal, missedYesterday } = input;
+  const isRestDay = focusType === 'rest' || focusType === 'mobility';
+
+  // Defaults
+  let intensity: Intensity = 'normal';
+  let volumeMultiplier = 1.0;
+  let progression: Progression = 'none';
+  let recoveryMode = false;
+  let mealAdjustment: MealAdjustment = 'none';
+  let systemMessage = '';
+
+  const lastEnergy = energyTrend[0] ?? 2;
+  const secondLastEnergy = energyTrend[1] ?? 2;
+
+  // ────────────────────────────────────
+  // RULE 1: Recovery Mode (highest priority)
+  // If last 2 energy logs are BOTH low → emergency deload
+  // ────────────────────────────────────
+  if (lastEnergy <= 1 && secondLastEnergy <= 1 && energyTrend.length >= 2) {
+    recoveryMode = true;
+    intensity = 'low';
+    volumeMultiplier = 0.6;
+    progression = 'deload';
+    systemMessage = 'Recovery session activated — low energy detected over 2 days.';
+  }
+
+  // ────────────────────────────────────
+  // RULE 2: Missed Yesterday → no progression
+  // ────────────────────────────────────
+  else if (missedYesterday) {
+    intensity = 'normal';
+    progression = 'none';
+    volumeMultiplier = 1.0;
+    systemMessage = 'Welcome back! Keeping intensity steady today.';
+  }
+
+  // ────────────────────────────────────
+  // RULE 3: High energy + streak ≥ 3 → push harder
+  // ────────────────────────────────────
+  else if (lastEnergy >= 3 && streak >= 3) {
+    intensity = 'high';
+    volumeMultiplier = 1.1;
+    progression = 'increase_reps';
+    systemMessage = 'Great energy! Volume increased by 10% based on your streak.';
+  }
+
+  // ────────────────────────────────────
+  // RULE 4: Streak ≥ 5 + energy not low → small overload
+  // ────────────────────────────────────
+  else if (streak >= 5 && lastEnergy >= 2) {
+    intensity = 'normal';
+    volumeMultiplier = 1.05;
+    progression = 'increase_reps';
+    systemMessage = '5+ day streak! Volume boosted by 5%.';
+  }
+
+  // ────────────────────────────────────
+  // RULE 5: Progressive overload & Recovery Adjustments from exercise history
+  // ────────────────────────────────────
+  else if (exerciseHistory.length > 0) {
+    // We only care about the LAST session's average difficulty for adaptive drops
+    const lastSessionDifficulty = getAverageDifficulty(exerciseHistory);
+
+    if (lastSessionDifficulty === 'easy') {
+      if (lastEnergy >= 3) {
+        progression = 'increase_reps';
+        volumeMultiplier = 1.1; // Small but realistic 10% increase
+        systemMessage = 'High energy and last session felt easy — adding slight progressive overload.';
+      } else {
+        progression = 'increase_reps';
+        volumeMultiplier = 1.05; // Very small 5% bump
+        systemMessage = 'Last session felt easy — nudging the volume up slightly.';
+      }
+    } else if (lastSessionDifficulty === 'hard') {
+      // Feature 4: Recovery Aware Volume Adjustment
+      if (lastEnergy <= 1) {
+        progression = 'deload';
+        volumeMultiplier = 0.8; // Realistic 20% drop to optimize recovery without stopping entirely
+        systemMessage = 'You pushed hard last time and energy is low today. Volume reduced to optimize recovery.';
+      } else {
+        progression = 'deload';
+        volumeMultiplier = 0.9;
+        systemMessage = 'Last session was tough — reducing volume slightly to keep you moving.';
+      }
+    } else {
+      systemMessage = 'Staying on track with your program.';
+    }
+  }
+
+  // ────────────────────────────────────
+  // No history, no special conditions
+  // ────────────────────────────────────
+  else {
+    systemMessage = 'Welcome! Follow the base plan — we\'ll adapt as you go.';
+  }
+
+  // ────────────────────────────────────
+  // GOAL-BASED MEAL ADJUSTMENT
+  // ────────────────────────────────────
+  if (goal === 'fat_loss' || goal === 'Weight Loss') {
+    mealAdjustment = isRestDay ? 'calorie_down' : 'none';
+  } else if (goal === 'muscle_gain' || goal === 'Muscle Gain') {
+    mealAdjustment = intensity === 'high' ? 'calorie_up' : 'none';
+  }
+
+  // Rest days always low intensity (but don't override recovery message)
+  if (isRestDay && !recoveryMode) {
+    intensity = 'low';
+    volumeMultiplier = 1.0;
+    progression = 'none';
+    if (!systemMessage) systemMessage = 'Rest day — active recovery only.';
+  }
+
+  return {
+    intensity,
+    volumeMultiplier,
+    progression,
+    recoveryMode,
+    mealAdjustment,
+    systemMessage,
+  };
+};
+
+// ═══════════════════════════════════════════════
+// Apply Adaptation (in-memory only)
+// ═══════════════════════════════════════════════
+
+export const applyAdaptation = (
+  baseWorkouts: Workout[],
+  plan: AdaptivePlan
+): AdaptedWorkout[] => {
+  return baseWorkouts.map((w) => {
+    // Resolve base sets: DB value → pool default → sensible fallback by exercise type
+    const baseSets = w.sets ?? getPoolDefaultSets(w.exercise_name);
+    let adaptedSets: number = baseSets;
+    let adaptedReps = w.reps ?? getPoolDefaultReps(w.exercise_name);
+    let isAdapted = false;
+
+    // Apply volume multiplier to sets
+    if (plan.volumeMultiplier !== 1.0) {
+      adaptedSets = Math.max(1, Math.round(baseSets * plan.volumeMultiplier));
+      if (adaptedSets !== baseSets) isAdapted = true;
+    }
+
+    // Apply rep progression
+    if (adaptedReps && plan.progression === 'increase_reps') {
+      const scaled = scaleRepRange(adaptedReps, plan.volumeMultiplier, 'up');
+      if (scaled !== adaptedReps) { adaptedReps = scaled; isAdapted = true; }
+    }
+
+    // Deload: reduce reps
+    if (adaptedReps && plan.progression === 'deload') {
+      const scaled = scaleRepRange(adaptedReps, plan.volumeMultiplier, 'down');
+      if (scaled !== adaptedReps) { adaptedReps = scaled; isAdapted = true; }
+    }
+
+    return { ...w, adaptedSets, adaptedReps, isAdapted };
+  });
+};
+
+// ═══════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════
+
+function getAverageDifficulty(history: ExerciseHistoryRecord[]): Difficulty {
+  if (history.length === 0) return 'medium';
+
+  const scores = history.map((h) =>
+    h.difficulty === 'easy' ? 1 : h.difficulty === 'hard' ? 3 : 2
+  );
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+  if (avg <= 1.4) return 'easy';
+  if (avg >= 2.6) return 'hard';
+  return 'medium';
+}
+
+function getPoolDefaultSets(exerciseName: string): number {
+  const pool = EXERCISE_POOL.find(e => e.name === exerciseName);
+  return pool?.defaultSets ?? 3;
+}
+
+function getPoolDefaultReps(exerciseName: string): string | null {
+  const pool = EXERCISE_POOL.find(e => e.name === exerciseName);
+  return pool?.defaultReps ?? null;
+}
+
+function scaleRepRange(
+  reps: string, 
+  multiplier: number, 
+  direction: 'up' | 'down'
+): string {
+  if (!reps || multiplier === 1.0) return reps;
+
+  // Handle "10-15" or "8-12 each"
+  const parts = reps.split('-');
+  
+  const scaledParts = parts.map(part => {
+    const numericPart = parseInt(part, 10);
+    if (isNaN(numericPart)) return part;
+
+    let newVal = Math.round(numericPart * multiplier);
+    
+    // Safety: don't let it drop to 0 unless it was 0
+    if (direction === 'down' && numericPart > 0) {
+      newVal = Math.max(1, newVal);
+    }
+    
+    // If it's something like "12 each", preserve the suffix
+    const suffix = part.replace(/[0-9]/g, '').trim();
+    return suffix ? `${newVal} ${suffix}` : `${newVal}`;
+  });
+
+  return scaledParts.join('-');
+}

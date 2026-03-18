@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Trainzy",
+    "slug": "FitnessApp",
+    "version": "1.0.0",
+    "scheme": "trainzy",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.trainzy.trainzy",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3efe54a0-aefb-4c19-ae39-be8220b8e24a"
+      }
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-localization",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "rakeshvanam",
+          "project": "trainzy"
+        }
+      ]
+    ]
+  }
+}
