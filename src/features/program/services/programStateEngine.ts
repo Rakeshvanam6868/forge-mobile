@@ -95,6 +95,11 @@ export function getUserTrainingLifecycleState(
     return 'SESSION_COMPLETED_TODAY';
   }
 
+  // Detect Phase Completion (28 sessions)
+  if (completionEvents.length >= 28) {
+    return 'PROGRAM_TRANSITION_PENDING';
+  }
+
   const daysSinceLast = getDaysDifference(todayLocalDate, lastEvent.event_date);
   const expectedRestDays = deriveRestDays(profile.weekly_frequency);
   

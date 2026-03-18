@@ -1,20 +1,23 @@
 import { supabase } from '../../../core/supabase/client';
 import { computeNextWorkout, UserTrainingState, UserWorkoutHistory, WorkoutType } from './adaptiveEntryEngine';
-import { getExercises, PoolExercise, MuscleGroup, EXERCISE_POOL } from '../data/exercisePools';
+import { getExercises, PoolExercise, MuscleGroup, EXERCISE_POOL, MovementCategory } from '../data/exercisePools';
 
 // ═══════════════════════════════════════════════
-// Types
+// Types & Rules
 // ═══════════════════════════════════════════════
 
 type FocusType = 'strength' | 'cardio' | 'mobility' | 'rest';
 type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
-type WorkoutTemplate = {
+export type WorkoutTemplate = {
   exercise_name: string;
   exercise_id?: string;
   sets?: number;
   reps?: string;
   duration?: string;
+  rest_sec?: number;
+  category?: MovementCategory;
+  muscle_groups?: MuscleGroup[];
 };
 
 type MealTemplate = {
@@ -35,8 +38,34 @@ type GroceryItem = {
   item_name: string;
 };
 
+// STRICT MUSCLE GROUP RULES (Deterministic Mapping)
+const ALLOWED_MUSCLES: Record<string, MuscleGroup[]> = {
+  push: ['chest', 'shoulders', 'triceps'],
+  pull: ['back', 'biceps'],
+  legs: ['legs'],
+  lower: ['legs', 'core'],
+  upper: ['chest', 'back', 'shoulders', 'triceps', 'biceps'],
+  full: ['chest', 'back', 'legs', 'shoulders', 'triceps', 'biceps', 'core'],
+  cardio_core: ['core', 'full_body'],
+  mobility: ['mobility', 'full_body']
+};
+
+const FORBIDDEN_MUSCLES: Record<string, MuscleGroup[]> = {
+  push: ['back', 'biceps', 'legs'],
+  pull: ['chest', 'shoulders', 'triceps', 'legs'],
+  legs: ['chest', 'back', 'shoulders', 'triceps', 'biceps'],
+  lower: ['chest', 'back', 'shoulders', 'triceps', 'biceps'],
+  upper: ['legs'],
+};
+
+// Equipment allowed per location — single source of truth
+const LOCATION_EQUIPMENT: Record<string, Set<string>> = {
+  home: new Set(['bodyweight', 'band']),
+  gym: new Set(['bodyweight', 'dumbbell', 'barbell', 'machine', 'cable', 'band']),
+};
+
 // ═══════════════════════════════════════════════
-// Adaptive Program Generation
+// Core Engine: programGenerator
 // ═══════════════════════════════════════════════
 
 export const generateProgram = async (
@@ -46,17 +75,8 @@ export const generateProgram = async (
   location: string,
   dietType: string
 ): Promise<{ program_id: string } | null> => {
-  // 1. Try to fetch existing profile for behavioral inputs
-  // During onboarding, the profile may not exist yet — fall back to function params
-  const { data: profile, error: profileErr } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
+  const { data: profile } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
 
-  if (profileErr) throw profileErr;
-
-  // Build the deterministic state — prefer profile data, fall back to function params
   const state: UserTrainingState = {
     level: (profile?.level || level || 'beginner').toLowerCase() as any,
     frequency: (profile?.weekly_frequency || '3-4') as any,
@@ -64,70 +84,44 @@ export const generateProgram = async (
     goal: (profile?.goal || goal || 'general_fitness').toLowerCase() as any,
   };
 
-  // 2. Insert new program row
-  // Use array extraction instead of .single() to avoid coercion error
   const { data: programRows, error: programError } = await supabase
     .from('programs')
     .insert({
       user_id: userId,
       goal: profile?.goal || goal,
       level: profile?.level || level,
-      location: profile?.environment || location,
+      location: location || profile?.environment,
       diet_type: profile?.diet_type || dietType,
       duration_weeks: 4,
     })
     .select();
 
   if (programError) throw programError;
-  const program = Array.isArray(programRows) ? programRows[0] : programRows;
-  if (!program) throw new Error('Failed to create program');
+  const program = programRows[0];
 
-  // Simulate 28 days of history chaining to generate exactly the right schedule
-  let currentHistory: UserWorkoutHistory = {
-    // For day 1, history is essentially empty so it uses state.lastWorkout
-  };
-
+  let currentHistory: UserWorkoutHistory = {};
   let globalDayCounter = 0;
 
-  // 3. Generate 4 weeks
   for (let w = 1; w <= 4; w++) {
-    // Use array extraction instead of .single() to prevent coercion error
-    const { data: weekRows, error: weekError } = await supabase
-      .from('program_weeks')
-      .insert({ program_id: program.id, week_number: w })
-      .select();
+    const { data: weekRows } = await supabase.from('program_weeks').insert({ program_id: program.id, week_number: w }).select();
+    const week = weekRows![0];
 
-    if (weekError) throw weekError;
-    const week = Array.isArray(weekRows) ? weekRows[0] : weekRows;
-    if (!week) throw new Error(`Failed to create week ${w}`);
-
-    // 4. Generate 7 days per week sequentially
-    const dayInserts = [];
-    const dayOutputs = [];
     const dayTemplates = [];
+    const dayInserts = [];
 
     for (let d = 0; d < 7; d++) {
       globalDayCounter++;
-
-      // Pure function determines exact right workout based on sequence rules!
-      // Provide a simulated date so the engine thinks 1 day has passed for history advancing
       const simulatedToday = new Date();
       simulatedToday.setDate(simulatedToday.getDate() + globalDayCounter);
 
       const nextOutput = computeNextWorkout(state, currentHistory, simulatedToday);
-      
-      // Update chain for next day
       currentHistory = {
         lastCompletedWorkoutType: nextOutput.workoutType,
-        lastCompletionDate: new Date(simulatedToday.getTime() - 86400000).toISOString().split('T')[0], // Simulate we did it yesterday
+        lastCompletionDate: new Date(simulatedToday.getTime() - 86400000).toISOString().split('T')[0],
       };
 
-      // Get the correct template matching the deterministic output
       const template = getTemplateForType(nextOutput.workoutType, state.level, location, state.goal);
-
-      dayOutputs.push(nextOutput);
       dayTemplates.push(template);
-
       dayInserts.push({
         program_week_id: week.id,
         day_number: d + 1,
@@ -136,292 +130,172 @@ export const generateProgram = async (
       });
     }
 
-    // Batch Insert 7 Days
-    const { data: dayRows, error: dayError } = await supabase
-      .from('program_days')
-      .insert(dayInserts)
-      .select();
+    const { data: dayRows } = await supabase.from('program_days').insert(dayInserts).select();
+    const sortedDays = dayRows!.sort((a, b) => a.day_number - b.day_number);
 
-    if (dayError) throw dayError;
-    const sortedDays = (dayRows as any[]).sort((a, b) => a.day_number - b.day_number);
-
-    let allWorkoutRows: any[] = [];
-    let allMealRows: any[] = [];
+    let allWorkouts: any[] = [];
+    let allMeals: any[] = [];
 
     for (let d = 0; d < 7; d++) {
       const day = sortedDays[d];
       const template = dayTemplates[d];
-      const nextOutput = dayOutputs[d];
 
-      // Prepare workouts for batch
-      if (template.workouts.length > 0) {
-        // Apply volume modifier
-        const mult = nextOutput.volumeModifier === 'intense' ? 1.2 : nextOutput.volumeModifier === 'reduced' ? 0.8 : 1;
-        
-        allWorkoutRows.push(...template.workouts.map((w: any, i: number) => ({
-          program_day_id: day.id,
-          exercise_name: w.exercise_name,
-          sets: w.sets ? Math.max(1, Math.round(w.sets * mult)) : null,
-          reps: w.reps ?? null,
-          duration: w.duration ?? null,
-          order_index: i,
-        })));
-      }
+      allWorkouts.push(...template.workouts.map((w, i) => ({
+        program_day_id: day.id,
+        exercise_id: w.exercise_id,
+        exercise_name: w.exercise_name,
+        sets: w.sets,
+        reps: w.reps,
+        duration: w.duration,
+        rest_sec: w.rest_sec,
+        order_index: i,
+      })));
 
-      // Prepare meals for batch
-      if (template.meals.length > 0) {
-        allMealRows.push(...template.meals.map((m: any) => ({
-          program_day_id: day.id,
-          meal_type: m.meal_type,
-          title: m.title,
-          description: m.description,
-        })));
-      }
+      allMeals.push(...template.meals.map(m => ({
+        program_day_id: day.id,
+        meal_type: m.meal_type,
+        title: m.title,
+        description: m.description,
+      })));
     }
 
-    // Batch Insert Workouts
-    if (allWorkoutRows.length > 0) {
-      const { error: wErr } = await supabase.from('day_workouts').insert(allWorkoutRows);
-      if (wErr) throw wErr;
-    }
+    await supabase.from('day_workouts').insert(allWorkouts);
+    await supabase.from('day_meals').insert(allMeals);
 
-    // Batch Insert Meals
-    if (allMealRows.length > 0) {
-      const { error: mErr } = await supabase.from('day_meals').insert(allMealRows);
-      if (mErr) throw mErr;
-    }
-
-    // 5. Insert grocery list
-    const groceries = buildGroceryList(profile?.diet_type || dietType || 'Any', profile?.goal || goal || 'General Fitness');
-    const groceryRows = groceries.map((g) => ({
-      program_week_id: week.id,
-      category: g.category,
-      item_name: g.item_name,
-    }));
-    const { error: gErr } = await supabase.from('week_groceries').insert(groceryRows);
-    if (gErr) throw gErr;
+    const groceries = buildGroceryList(profile?.diet_type || dietType, profile?.goal || goal);
+    await supabase.from('week_groceries').insert(groceries.map(g => ({ ...g, program_week_id: week.id })));
   }
 
-  // Return the program as a single JSON object (fixes coercion error)
   return { program_id: program.id };
 };
 
 // ═══════════════════════════════════════════════
-// Base Templates per Muscle Group (Adaptive blocks)
+// Deterministic Generation Logic
 // ═══════════════════════════════════════════════
 
 export function getTemplateForType(type: WorkoutType, level: string, location: string, goal: string): DayTemplate {
-  const isFatLoss = goal === 'fat_loss';
-  
-  // Mapping WorkoutTypes to MuscleGroups
-  let primaryMuscleGroups: MuscleGroup[] = [];
-  let secondaryMuscleGroups: MuscleGroup[] = [];
-  let title = '';
-  let focus_type: FocusType = 'strength';
+  const allowed = ALLOWED_MUSCLES[type] || ['mobility'];
+  const forbidden = FORBIDDEN_MUSCLES[type] || [];
+  const generated: WorkoutTemplate[] = [];
+  const usedIds = new Set<string>();
 
-  switch (type) {
-    case 'push':
-      primaryMuscleGroups = ['chest', 'shoulders'];
-      secondaryMuscleGroups = ['arms']; // Triceps fall under arms
-      title = 'Push (Chest, Shoulders, Triceps)';
-      break;
-    case 'pull':
-      primaryMuscleGroups = ['back'];
-      secondaryMuscleGroups = ['arms']; // Biceps
-      title = 'Pull (Back, Biceps)';
-      break;
-    case 'legs':
-    case 'lower':
-      primaryMuscleGroups = ['legs'];
-      secondaryMuscleGroups = ['core'];
-      title = type === 'lower' ? 'Lower Body & Core' : 'Legs & Core';
-      break;
-    case 'upper':
-    case 'upper_hypertrophy':
-      primaryMuscleGroups = ['chest', 'back', 'shoulders'];
-      secondaryMuscleGroups = ['arms'];
-      title = 'Upper Body Strength';
-      break;
-    case 'full':
-      primaryMuscleGroups = ['chest', 'back', 'legs', 'shoulders'];
-      secondaryMuscleGroups = ['core', 'arms'];
-      title = 'Full Body';
-      break;
-    case 'cardio_core':
-    case 'cardio':
-      primaryMuscleGroups = ['core', 'full_body']; // For cardio options
-      title = isFatLoss ? 'HIIT Cardio & Core' : 'Steady State Cardio & Core';
-      focus_type = 'cardio';
-      break;
-    case 'mobility':
-      primaryMuscleGroups = ['mobility'];
-      title = 'Flexibility & Mobility';
-      focus_type = 'mobility';
-      break;
-    case 'rest':
-    case 'none':
-    default:
-      primaryMuscleGroups = ['mobility'];
-      title = 'Active Recovery';
-      focus_type = 'rest';
-      break;
+  // 1. Build Pipeline (Warmup -> Compound -> Accessory -> Isolation -> Core/Cardio)
+  const pipeline = [
+    { cat: 'warmup', count: 1, muscles: allowed.concat(['mobility', 'full_body'] as MuscleGroup[]) },
+    { cat: 'compound', count: level === 'beginner' ? 1 : 2, muscles: allowed },
+    { cat: 'accessory', count: level === 'beginner' ? 1 : 2, muscles: allowed },
+    { cat: 'isolation', count: level === 'advanced' ? 2 : 1, muscles: allowed },
+    { cat: 'core_cardio', count: 1, muscles: ['core', 'full_body'] as MuscleGroup[] }
+  ];
+
+  for (const step of pipeline) {
+    const pooled = getExercises(step.muscles, step.cat as MovementCategory, location, step.count, usedIds, forbidden);
+    pooled.forEach(ex => {
+      usedIds.add(ex.id);
+      generated.push(adaptExercise(ex, level, goal));
+    });
   }
 
-  const generatedWorkouts: WorkoutTemplate[] = [];
-  const excludeIds = new Set<string>();
+  // 2. VALIDATION GATE — Remove any exercise that violates muscle or equipment rules
+  const validated = validateAndCleanWorkout(generated, type, location);
 
-  const addExercise = (exercise?: PoolExercise) => {
-    if (exercise) {
-      excludeIds.add(exercise.id);
-      generatedWorkouts.push(formatEx(exercise, level));
-      return true;
-    }
-    return false;
+  // 3. Final Formatting
+  return {
+    title: formatTitle(type),
+    focus_type: deriveFocus(type),
+    workouts: validated,
+    meals: getDefaultMeals()
   };
-
-  // Handle Cardio/Mobility/Rest dynamically but simpler
-  if (focus_type !== 'strength') {
-    const warmup = getExercises(primaryMuscleGroups, 'warmup', location, 1, excludeIds)[0] || getExercises(['mobility'] as MuscleGroup[], 'warmup', location, 1, excludeIds)[0];
-    addExercise(warmup);
-    
-    if (focus_type === 'cardio') {
-      const cardio = getExercises(['full_body'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
-      const core1 = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
-      const core2 = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
-      
-      addExercise(cardio);
-      addExercise(core1);
-      if (level === 'advanced') addExercise(core2);
-    } else {
-      // Mobility/Rest
-      const stretch1 = getExercises(['mobility'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
-      const stretch2 = getExercises(['mobility'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
-      addExercise(stretch1);
-      addExercise(stretch2);
-    }
-    return day(title, focus_type, generatedWorkouts);
-  }
-
-  // STRUCTURAL LOGIC FOR STRENGTH (Warmup -> Compound -> Accessory -> Isolation -> Core/Cardio)
-  // Ensure we fallback to 'full_body' group or 'core' if specific pulls fail
-  const safePrimary = primaryMuscleGroups.length > 0 ? primaryMuscleGroups : (['full_body'] as MuscleGroup[]);
-  const safeSecondary = secondaryMuscleGroups.length > 0 ? secondaryMuscleGroups : (['core'] as MuscleGroup[]);
-
-  // 1. Warmup
-  let warmupEx = getExercises(safePrimary.concat(['mobility'] as MuscleGroup[]), 'warmup', location, 1, excludeIds)[0] || EXERCISE_POOL.find((e: PoolExercise) => e.category === 'warmup')!;
-  addExercise(warmupEx);
-
-  // 2. Compounds & Accessories
-  if (type === 'full') {
-    // Explicit primary mapping for full body to guarantee chest, back, legs, shoulders
-    const fullBodyTargets = ['legs', 'chest', 'back', 'shoulders'] as MuscleGroup[];
-    for (const target of fullBodyTargets) {
-      let comp = getExercises([target], 'compound', location, 1, excludeIds)[0];
-      if (!comp) comp = getExercises([target], 'accessory', location, 1, excludeIds)[0];
-      if (!comp) comp = getExercises([target], 'isolation', location, 1, excludeIds)[0];
-      addExercise(comp); // Adds 4 exercises
-    }
-  } else {
-    // Standard Split Engine: Compound -> Accessory1 -> Accessory2 -> Isolation1
-    let compoundEx = getExercises(safePrimary, 'compound', location, 1, excludeIds)[0];
-    if (!compoundEx) compoundEx = getExercises(['full_body'] as MuscleGroup[], 'compound', location, 1, excludeIds)[0];
-    addExercise(compoundEx);
-
-    let accessoryEx1 = getExercises(safePrimary, 'accessory', location, 1, excludeIds)[0];
-    if (!accessoryEx1) accessoryEx1 = getExercises(safePrimary, 'compound', location, 1, excludeIds)[0];
-    addExercise(accessoryEx1);
-
-    let accessoryEx2 = getExercises(safeSecondary, 'accessory', location, 1, excludeIds)[0];
-    if (!accessoryEx2) accessoryEx2 = getExercises(safePrimary, 'isolation', location, 1, excludeIds)[0];
-    addExercise(accessoryEx2);
-
-    let isolationEx = getExercises(safeSecondary, 'isolation', location, 1, excludeIds)[0];
-    if (!isolationEx) isolationEx = getExercises(safePrimary, 'isolation', location, 1, excludeIds)[0];
-    addExercise(isolationEx);
-  }
-
-  // 3. Optional Core
-  let coreEx = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
-  if (!coreEx) coreEx = getExercises(['full_body'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
-  addExercise(coreEx);
-
-  // 4. Enforce Exact Exercise Counts
-  const targetCounts: Record<string, number> = {
-    beginner: 5,
-    intermediate: 6,
-    advanced: 7,
-  };
-  const targetCount = targetCounts[level] || 5;
-
-  while (generatedWorkouts.length < targetCount) {
-    // Fallback: Try isolation from secondary, then primary, then core, then full_body
-    let fallback = getExercises(safeSecondary, 'isolation', location, 1, excludeIds)[0];
-    if (!fallback) fallback = getExercises(safePrimary, 'isolation', location, 1, excludeIds)[0];
-    if (!fallback) fallback = getExercises(safeSecondary, 'accessory', location, 1, excludeIds)[0];
-    if (!fallback) fallback = getExercises(safePrimary, 'accessory', location, 1, excludeIds)[0];
-    if (!fallback) fallback = getExercises(['core'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
-    if (!fallback) fallback = getExercises(['full_body'] as MuscleGroup[], 'core_cardio', location, 1, excludeIds)[0];
-    
-    // If pool is completely exhausted, break to prevent infinite loop
-    if (!fallback) break;
-    
-    addExercise(fallback);
-  }
-
-  // 5. Hard cap max limit
-  const maxCounts: Record<string, number> = {
-    beginner: 6,
-    intermediate: 7,
-    advanced: 9,
-  };
-  const maxCount = maxCounts[level] || 6;
-  if (generatedWorkouts.length > maxCount) {
-    generatedWorkouts.splice(maxCount, generatedWorkouts.length - maxCount);
-  }
-
-  return day(title, focus_type, generatedWorkouts);
 }
 
-// Convert PoolExercise to WorkoutTemplate
-function formatEx(ex: PoolExercise, level: string): WorkoutTemplate {
-  let sets = ex.defaultSets;
-  if (level === 'advanced' && sets && sets >= 3) {
-      sets += 1;
+// ADAPTATION LAYER
+function adaptExercise(ex: PoolExercise, level: string, goal: string): WorkoutTemplate {
+  let sets = ex.defaultSets || 3;
+  let reps = ex.defaultReps || '10-12';
+  let rest = ex.restSec ?? 60;
+
+  if (level === 'advanced') sets += 1;
+  if (goal === 'strength') {
+    reps = '5-8';
+    rest += 30;
+  } else if (goal === 'fat_loss') {
+    reps = '15-20';
+    rest -= 15;
   }
+
   return {
     exercise_id: ex.id,
     exercise_name: ex.name,
-    sets: sets,
-    reps: ex.defaultReps,
+    sets,
+    reps,
     duration: ex.duration,
+    rest_sec: Math.max(rest, 30),
+    category: ex.category,
+    muscle_groups: ex.muscleGroup
   };
 }
 
-// ───── MEALS (shared) ─────
+// VALIDATION ENGINE — Rejects violations instead of logging them
+function validateAndCleanWorkout(workouts: WorkoutTemplate[], type: string, location: string): WorkoutTemplate[] {
+  const forbidden = new Set(FORBIDDEN_MUSCLES[type] || []);
+  const normalizedLocation = location.toLowerCase();
+  const allowedEquipment = LOCATION_EQUIPMENT[normalizedLocation] || LOCATION_EQUIPMENT['gym'];
+
+  return workouts.filter(w => {
+    // Gate 1: Muscle group violation — reject if ANY muscle is forbidden
+    if (type !== 'rest' && type !== 'mobility' && type !== 'full') {
+      const hasForbiddenMuscle = w.muscle_groups?.some(mg => forbidden.has(mg));
+      if (hasForbiddenMuscle) {
+        console.warn(`[ValidationGate] REJECTED ${w.exercise_name}: forbidden muscle in ${type} workout`);
+        return false;
+      }
+    }
+
+    // Gate 2: Equipment violation — reject if exercise has NO valid equipment for location
+    if (w.exercise_id) {
+      const poolEx = EXERCISE_POOL.find(p => p.id === w.exercise_id);
+      if (poolEx) {
+        const hasValidEquipment = poolEx.equipment.some(eq => allowedEquipment.has(eq));
+        if (!hasValidEquipment) {
+          console.warn(`[ValidationGate] REJECTED ${w.exercise_name}: equipment not valid for ${normalizedLocation}`);
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
+}
+
+// ═══════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════
+
+function formatTitle(type: string) {
+  const map: any = { push: 'Push (Chest/Shoulders/Triceps)', pull: 'Pull (Back/Biceps)', legs: 'Legs (Lower Body)', upper: 'Upper Body Power', full: 'Full Body Integration' };
+  return map[type] || 'Active Recovery';
+}
+
+function deriveFocus(type: string): FocusType {
+  if (['rest', 'mobility'].includes(type)) return type as FocusType;
+  if (['cardio', 'cardio_core'].includes(type)) return 'cardio';
+  return 'strength';
+}
+
 function getDefaultMeals(): MealTemplate[] {
   return [
-    { meal_type: 'breakfast', title: 'Oats & Banana', description: 'Rolled oats with banana, honey & nuts. 350 cal.' },
-    { meal_type: 'lunch', title: 'Rice & Dal Bowl', description: 'Brown rice, moong dal, mixed veggies, curd. 500 cal.' },
-    { meal_type: 'snack', title: 'Fruit & Nuts', description: 'Apple or banana with 10 almonds. 200 cal.' },
-    { meal_type: 'dinner', title: 'Roti & Sabzi', description: '2 multigrain rotis with paneer/chicken sabzi. 450 cal.' },
+    { meal_type: 'breakfast', title: 'Power Porridge', description: 'Oats, protein scoop, berries.' },
+    { meal_type: 'lunch', title: 'Lean Green Bowl', description: 'Protein, complex carbs, greens.' },
+    { meal_type: 'snack', title: 'Fuel Bar', description: 'Protein bar or handful of nuts.' },
+    { meal_type: 'dinner', title: 'Recovery Feast', description: 'Salmon/Tofu, sweet potato, broccoli.' }
   ];
 }
 
-// ───── GROCERIES ─────
 function buildGroceryList(dietType: string, goal: string): GroceryItem[] {
-  const isVeg = dietType === 'Vegan' || dietType === 'Vegetarian';
-  const protein: GroceryItem[] = isVeg
-    ? [ { category: 'protein', item_name: 'Paneer (500g)' }, { category: 'protein', item_name: 'Moong Dal (500g)' }, { category: 'protein', item_name: 'Tofu (400g)' }, { category: 'protein', item_name: 'Greek Yogurt (500g)' } ]
-    : [ { category: 'protein', item_name: 'Chicken Breast (1 kg)' }, { category: 'protein', item_name: 'Eggs (12)' }, { category: 'protein', item_name: 'Paneer (250g)' }, { category: 'protein', item_name: 'Fish/Prawns (500g)' } ];
-
-  const carbs: GroceryItem[] = [ { category: 'carbs', item_name: 'Brown Rice (1 kg)' }, { category: 'carbs', item_name: 'Rolled Oats (500g)' }, { category: 'carbs', item_name: 'Multigrain Atta (1 kg)' }, { category: 'carbs', item_name: 'Sweet Potato (500g)' }, { category: 'carbs', item_name: 'Bananas (6)' } ];
-  const vegetables: GroceryItem[] = [ { category: 'vegetables', item_name: 'Spinach (250g)' }, { category: 'vegetables', item_name: 'Broccoli (250g)' }, { category: 'vegetables', item_name: 'Mixed Bell Peppers (3)' }, { category: 'vegetables', item_name: 'Tomatoes (500g)' }, { category: 'vegetables', item_name: 'Onions (500g)' } ];
-  const essentials: GroceryItem[] = [ { category: 'essentials', item_name: 'Olive Oil (500ml)' }, { category: 'essentials', item_name: 'Honey (250g)' }, { category: 'essentials', item_name: 'Almonds (200g)' }, { category: 'essentials', item_name: 'Peanut Butter (250g)' } ];
-
-  return [...protein, ...carbs, ...vegetables, ...essentials];
-}
-
-// ───── Helper ─────
-function day(title: string, focus_type: FocusType, workouts: WorkoutTemplate[]): DayTemplate {
-  return { title, focus_type, workouts, meals: getDefaultMeals() };
+  return [
+    { category: 'protein', item_name: 'Chicken/Tofu' },
+    { category: 'carbs', item_name: 'Quinoa/Rice' },
+    { category: 'vegetables', item_name: 'Spinach/Broccoli' },
+    { category: 'essentials', item_name: 'Olive Oil' }
+  ];
 }

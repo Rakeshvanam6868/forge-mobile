@@ -6,6 +6,7 @@
  */
 
 import { Workout, Meal } from '../hooks/useDayDetail';
+import { EXERCISE_POOL } from '../data/exercisePools';
 
 // ═══════════════════════════════════════════════
 // Types
@@ -79,7 +80,7 @@ export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
     intensity = 'low';
     volumeMultiplier = 0.6;
     progression = 'deload';
-    systemMessage = '🛡️ Recovery session activated — low energy detected over 2 days.';
+    systemMessage = 'Recovery session activated — low energy detected over 2 days.';
   }
 
   // ────────────────────────────────────
@@ -89,7 +90,7 @@ export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
     intensity = 'normal';
     progression = 'none';
     volumeMultiplier = 1.0;
-    systemMessage = '🔄 Welcome back! Keeping intensity steady today.';
+    systemMessage = 'Welcome back! Keeping intensity steady today.';
   }
 
   // ────────────────────────────────────
@@ -99,7 +100,7 @@ export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
     intensity = 'high';
     volumeMultiplier = 1.1;
     progression = 'increase_reps';
-    systemMessage = '🔥 Great energy! Volume increased by 10% based on your streak.';
+    systemMessage = 'Great energy! Volume increased by 10% based on your streak.';
   }
 
   // ────────────────────────────────────
@@ -109,7 +110,7 @@ export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
     intensity = 'normal';
     volumeMultiplier = 1.05;
     progression = 'increase_reps';
-    systemMessage = '📈 5+ day streak! Volume boosted by 5%.';
+    systemMessage = '5+ day streak! Volume boosted by 5%.';
   }
 
   // ────────────────────────────────────
@@ -123,25 +124,25 @@ export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
       if (lastEnergy >= 3) {
         progression = 'increase_reps';
         volumeMultiplier = 1.1; // Small but realistic 10% increase
-        systemMessage = '⚡ High energy and last session felt easy — adding slight progressive overload.';
+        systemMessage = 'High energy and last session felt easy — adding slight progressive overload.';
       } else {
         progression = 'increase_reps';
         volumeMultiplier = 1.05; // Very small 5% bump
-        systemMessage = '💪 Last session felt easy — nudging the volume up slightly.';
+        systemMessage = 'Last session felt easy — nudging the volume up slightly.';
       }
     } else if (lastSessionDifficulty === 'hard') {
       // Feature 4: Recovery Aware Volume Adjustment
       if (lastEnergy <= 1) {
         progression = 'deload';
         volumeMultiplier = 0.8; // Realistic 20% drop to optimize recovery without stopping entirely
-        systemMessage = '🔋 You pushed hard last time and energy is low today. Volume reduced to optimize recovery.';
+        systemMessage = 'You pushed hard last time and energy is low today. Volume reduced to optimize recovery.';
       } else {
         progression = 'deload';
         volumeMultiplier = 0.9;
-        systemMessage = '⚖️ Last session was tough — reducing volume slightly to keep you moving.';
+        systemMessage = 'Last session was tough — reducing volume slightly to keep you moving.';
       }
     } else {
-      systemMessage = '✅ Staying on track with your program.';
+      systemMessage = 'Staying on track with your program.';
     }
   }
 
@@ -149,15 +150,15 @@ export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
   // No history, no special conditions
   // ────────────────────────────────────
   else {
-    systemMessage = '👋 Welcome! Follow the base plan — we\'ll adapt as you go.';
+    systemMessage = 'Welcome! Follow the base plan — we\'ll adapt as you go.';
   }
 
   // ────────────────────────────────────
   // GOAL-BASED MEAL ADJUSTMENT
   // ────────────────────────────────────
-  if (goal === 'Weight Loss') {
+  if (goal === 'fat_loss' || goal === 'Weight Loss') {
     mealAdjustment = isRestDay ? 'calorie_down' : 'none';
-  } else if (goal === 'Muscle Gain') {
+  } else if (goal === 'muscle_gain' || goal === 'Muscle Gain') {
     mealAdjustment = intensity === 'high' ? 'calorie_up' : 'none';
   }
 
@@ -166,7 +167,7 @@ export const computeAdaptivePlan = (input: AdaptiveInput): AdaptivePlan => {
     intensity = 'low';
     volumeMultiplier = 1.0;
     progression = 'none';
-    if (!systemMessage) systemMessage = '🧘 Rest day — active recovery only.';
+    if (!systemMessage) systemMessage = 'Rest day — active recovery only.';
   }
 
   return {
@@ -188,39 +189,30 @@ export const applyAdaptation = (
   plan: AdaptivePlan
 ): AdaptedWorkout[] => {
   return baseWorkouts.map((w) => {
-    let adaptedSets = w.sets;
-    let adaptedReps = w.reps;
+    // Resolve base sets: DB value → pool default → sensible fallback by exercise type
+    const baseSets = w.sets ?? getPoolDefaultSets(w.exercise_name);
+    let adaptedSets: number = baseSets;
+    let adaptedReps = w.reps ?? getPoolDefaultReps(w.exercise_name);
     let isAdapted = false;
 
     // Apply volume multiplier to sets
-    if (adaptedSets && plan.volumeMultiplier !== 1.0) {
-      adaptedSets = Math.max(1, Math.round(adaptedSets * plan.volumeMultiplier));
-      if (adaptedSets !== w.sets) isAdapted = true;
+    if (plan.volumeMultiplier !== 1.0) {
+      adaptedSets = Math.max(1, Math.round(baseSets * plan.volumeMultiplier));
+      if (adaptedSets !== baseSets) isAdapted = true;
     }
 
     // Apply rep progression
     if (adaptedReps && plan.progression === 'increase_reps') {
-      const numericReps = parseInt(adaptedReps, 10);
-      if (!isNaN(numericReps)) {
-        const newReps = Math.round(numericReps * plan.volumeMultiplier);
-        if (newReps !== numericReps) {
-          adaptedReps = String(newReps);
-          isAdapted = true;
-        }
-      }
+      const scaled = scaleRepRange(adaptedReps, plan.volumeMultiplier, 'up');
+      if (scaled !== adaptedReps) { adaptedReps = scaled; isAdapted = true; }
     }
 
     // Deload: reduce reps
     if (adaptedReps && plan.progression === 'deload') {
-      const numericReps = parseInt(adaptedReps, 10);
-      if (!isNaN(numericReps)) {
-        const newReps = Math.max(1, Math.round(numericReps * plan.volumeMultiplier));
-        if (newReps !== numericReps) {
-          adaptedReps = String(newReps);
-          isAdapted = true;
-        }
-      }
+      const scaled = scaleRepRange(adaptedReps, plan.volumeMultiplier, 'down');
+      if (scaled !== adaptedReps) { adaptedReps = scaled; isAdapted = true; }
     }
+
     return { ...w, adaptedSets, adaptedReps, isAdapted };
   });
 };
@@ -240,4 +232,43 @@ function getAverageDifficulty(history: ExerciseHistoryRecord[]): Difficulty {
   if (avg <= 1.4) return 'easy';
   if (avg >= 2.6) return 'hard';
   return 'medium';
+}
+
+function getPoolDefaultSets(exerciseName: string): number {
+  const pool = EXERCISE_POOL.find(e => e.name === exerciseName);
+  return pool?.defaultSets ?? 3;
+}
+
+function getPoolDefaultReps(exerciseName: string): string | null {
+  const pool = EXERCISE_POOL.find(e => e.name === exerciseName);
+  return pool?.defaultReps ?? null;
+}
+
+function scaleRepRange(
+  reps: string, 
+  multiplier: number, 
+  direction: 'up' | 'down'
+): string {
+  if (!reps || multiplier === 1.0) return reps;
+
+  // Handle "10-15" or "8-12 each"
+  const parts = reps.split('-');
+  
+  const scaledParts = parts.map(part => {
+    const numericPart = parseInt(part, 10);
+    if (isNaN(numericPart)) return part;
+
+    let newVal = Math.round(numericPart * multiplier);
+    
+    // Safety: don't let it drop to 0 unless it was 0
+    if (direction === 'down' && numericPart > 0) {
+      newVal = Math.max(1, newVal);
+    }
+    
+    // If it's something like "12 each", preserve the suffix
+    const suffix = part.replace(/[0-9]/g, '').trim();
+    return suffix ? `${newVal} ${suffix}` : `${newVal}`;
+  });
+
+  return scaledParts.join('-');
 }

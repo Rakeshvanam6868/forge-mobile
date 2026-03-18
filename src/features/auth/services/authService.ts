@@ -42,7 +42,8 @@ export const authService = {
   signInWithGoogle: async () => {
     try {
       // Generate a deep link to return to the app
-      const returnUrl = Linking.createURL('');
+      // Using /--/auth is a common Expo pattern to ensure Android captures the redirect correctly
+      const returnUrl = Linking.createURL('--/auth');
       console.log('[AuthService] Return URL:', returnUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -59,7 +60,7 @@ export const authService = {
       // Open the browser for OAuth
       const result = await WebBrowser.openAuthSessionAsync(data.url, returnUrl);
 
-      if (result.type === 'success' && result.url) {
+      if (result.type === 'success' && 'url' in result) {
         const parsedUrl = new URL(result.url.replace('#', '?'));
         const accessToken = parsedUrl.searchParams.get('access_token');
         const refreshToken = parsedUrl.searchParams.get('refresh_token');

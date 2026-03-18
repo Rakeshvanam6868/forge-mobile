@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
   TouchableOpacity, Alert, Modal, Pressable
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 // import exercisesData from '../data/exercises.json'; // Replaced by useExerciseDetail
@@ -11,10 +12,12 @@ import { useAdaptiveDay } from '../hooks/useAdaptiveDay';
 import { upsertExerciseHistory } from '../services/exerciseHistoryQueries';
 import { useQuery } from '@tanstack/react-query';
 import { Difficulty, AdaptedWorkout } from '../services/adaptiveEngine';
+import { generateProgram } from '../services/programGenerator';
 import { useRetention } from '../../retention/hooks/useRetention';
 import { useExerciseDetail } from '../hooks/useExerciseDetail';
 import { supabase } from '../../../core/supabase/client';
 import { AuthButton } from '../../auth/components/AuthButton';
+import { useUserProfile } from '../../onboarding/hooks/useUserProfile';
 import { Badge } from '../../../core/components/Badge';
 import { PrimaryCard } from '../../../core/components/PrimaryCard';
 import { SectionBlock } from '../../../core/components/SectionBlock';
@@ -36,11 +39,16 @@ const DIFFICULTIES: { value: Difficulty; label: string }[] = [
   { value: 'medium', label: 'MODERATE' },
   { value: 'hard', label: 'INTENSE' },
 ];
-const FOCUS_ICONS: Record<string, string> = { strength: '💪', cardio: '💪', mobility: '💪', rest: 'REST' };
-const MEAL_EMOJI: Record<string, string> = { breakfast: '🌅', lunch: '☀️', snack: '🍎', dinner: '🌙' };
+const FOCUS_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = { 
+  strength: 'barbell', 
+  cardio: 'heart-half', 
+  mobility: 'body', 
+  rest: 'bed' 
+};
+const MEAL_EMOJI: Record<string, string> = { breakfast: 'AM', lunch: 'NOON', snack: 'SNACK', dinner: 'PM' };
 const MEAL_ADJUSTMENT_LABELS: Record<string, string> = {
-  calorie_up: '⬆️ +150 cal (muscle gain boost)',
-  calorie_down: '⬇️ -150 cal (rest day cut)',
+  calorie_up: '+150 cal (muscle gain boost)',
+  calorie_down: '-150 cal (rest day cut)',
   none: '',
 };
 
@@ -55,6 +63,7 @@ function getRecoveryInsight(difficulty: string | null, energy: number | null): s
 
 export const TodayScreen = () => {
   const { user } = useAuth();
+  const { profile } = useUserProfile();
   const queryClient = useQueryClient();
   const { adaptiveState, lifecycleState: hookLifecycle, isLoading, isError: hookIsError, completeToday } = useAdaptiveDay();
   const { logEvent } = useRetention();
@@ -144,7 +153,7 @@ export const TodayScreen = () => {
   if (loadError || hookIsError) {
     return (
       <View style={[styles.screen, styles.center]}>
-        <Text style={{ fontSize: 40, marginBottom: 16 }}>⚠️</Text>
+        <Text style={{ fontSize: 14, marginBottom: 16, color: palette.warning, fontWeight: '700', letterSpacing: 2 }}>WARNING</Text>
         <Text style={[styles.emptyText, { textAlign: 'center', paddingHorizontal: 32 }]}>
           {loadError || 'An error occurred while loading your session.'}
         </Text>
@@ -180,7 +189,7 @@ export const TodayScreen = () => {
         <SectionBlock title="Workout">
           <PrimaryCard>
             <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-              <Text style={{ fontSize: 40, marginBottom: 16 }}>⚠️</Text>
+              <Text style={{ fontSize: 14, marginBottom: 16, color: palette.warning, fontWeight: '700', letterSpacing: 2 }}>WARNING</Text>
               <Text style={[styles.emptyText, { textAlign: 'center', marginBottom: 24, paddingHorizontal: 16 }]}>
                 Program data is missing or interrupted. Please reset to regenerate your training plan.
               </Text>
@@ -230,12 +239,12 @@ export const TodayScreen = () => {
                         
                         
 
-                        <Text style={styles.exerciseSets}>
-                          {isWarmup ? `${(w as any).targetReps || '10-15'} reps · ${w.adaptedSets || 1} sets` : 
-                           `${w.adaptedSets || 3} sets${w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}`}
-                          {(w as any).duration ? ` · ${(w as any).duration}` : ''}
-                          {(w as any).restSec ? ` · ${(w as any).restSec}s rest` : ''}
-                        </Text>
+                         <Text style={styles.exerciseSets}>
+                           {isWarmup ? `${(w as any).targetReps || '10-15'} reps · ${w.adaptedSets} sets` : 
+                            `${w.adaptedSets} sets${w.adaptedReps && w.adaptedReps !== '—' ? ` × ${w.adaptedReps}` : ''}`}
+                           {(w as any).duration ? ` · ${(w as any).duration}` : ''}
+                           {(w as any).restSec ? ` · ${(w as any).restSec}s rest` : ''}
+                         </Text>
 
                         {/* DYNAMIC WEIGHTS */}
                         {history && (history.last_weight || history.suggested_weight) && (
@@ -264,7 +273,7 @@ export const TodayScreen = () => {
                             {equipment && equipment.length > 0 && (
                               <View style={styles.aiMetaBadge}>
                                 <Text style={styles.aiMetaBadgeText}>
-                                  🛠️ {equipment.join(', ')}
+                                  {equipment.join(', ')}
                                 </Text>
                               </View>
                             )}
@@ -286,7 +295,7 @@ export const TodayScreen = () => {
             activeOpacity={0.8}
             onPress={() => navigation.navigate('WorkoutMode', { workouts: adaptedWorkouts })}
           >
-            <Text style={styles.startWorkoutEmoji}>💪</Text>
+            <Ionicons name="play" size={22} color={palette.white} />
             <Text style={styles.startWorkoutText}>Start Workout</Text>
           </TouchableOpacity>
         </View>
@@ -304,7 +313,7 @@ export const TodayScreen = () => {
     <View style={styles.completedContainer}>
     <View style={styles.completionCard}>
       <View style={styles.rowCenter}>
-        <Text style={styles.completionIcon}>🔥</Text>
+        <Ionicons name="checkmark-circle" size={24} color={palette.primary} />
         <View style={styles.flex}>
           <Text style={styles.completionTitle}>Session Finished</Text>
           <Text style={styles.completionSub}>You crushed today's target.</Text>
@@ -313,7 +322,7 @@ export const TodayScreen = () => {
     </View>
       
       <View style={styles.insightBox}>
-        <Text style={styles.insightIcon}>💪</Text>
+        <Ionicons name="medical" size={24} color={palette.primary} />
         <Text style={styles.insightText}>Recovery Insight:</Text>
         <Text style={styles.insightValue}>
           {getRecoveryInsight(
@@ -327,7 +336,10 @@ export const TodayScreen = () => {
         <Text style={styles.nextDateLabel}>Next session</Text>
         <Text style={styles.nextDateValue}>{nextTrainingDateString}</Text>
         {lifecycleState !== 'RECOVERY_DAY' && (
-          <Text style={styles.nextDatePreview}>Preview: {FOCUS_ICONS[workoutType]} {dayDetail.title}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, gap: 6 }}>
+            <Ionicons name={FOCUS_ICONS[workoutType] || 'barbell'} size={16} color={palette.textSecondary} />
+            <Text style={[styles.nextDatePreview, { marginTop: 0 }]}>Preview: {dayDetail.title}</Text>
+          </View>
         )}
       </View>
     </View>
@@ -354,7 +366,7 @@ export const TodayScreen = () => {
 
         {lifecycleState === 'MISSED_TRAINING_DAY' && (
           <View style={styles.warningBanner}>
-            <View style={styles.iconWrap}><Text style={styles.iconInner}>💪</Text></View>
+            <View style={styles.iconWrap}><Ionicons name="information-circle" size={24} color={palette.primary} /></View>
             <View style={styles.warningContent}>
               <Text style={styles.warningTitle}>Missed Session</Text>
               <Text style={styles.warningText}>You missed your scheduled day. Catch up on this workout to protect your sequence.</Text>
@@ -364,7 +376,7 @@ export const TodayScreen = () => {
 
         {lifecycleState === 'RECOVERY_DAY' && (
           <View style={styles.infoBanner}>
-            <View style={styles.iconWrap}><Text style={styles.iconInner}>💪</Text></View>
+            <View style={styles.iconWrap}><Ionicons name="leaf" size={24} color={palette.primary} /></View>
             <View style={styles.warningContent}>
               <Text style={styles.infoTitle}>Recovery Day</Text>
               <Text style={styles.infoText}>Your body grows while resting. Next session is {nextTrainingDateString}.</Text>
@@ -376,7 +388,7 @@ export const TodayScreen = () => {
         <View style={styles.heroCustom}>
           <View style={styles.heroInner}>
             <View style={styles.heroIconWrap}>
-              <Text style={styles.heroIcon}>💪</Text>
+              <Ionicons name="sparkles" size={28} color={palette.primary} />
             </View>
             <View style={styles.heroTextBlock}>
               <Text style={styles.heroMessage}>{adaptivePlan.systemMessage}</Text>
@@ -392,7 +404,10 @@ export const TodayScreen = () => {
         {lifecycleState !== 'SESSION_COMPLETED_TODAY' && (
           <View style={styles.headerBlock}>
             <Text style={styles.headerCaption}>UPCOMING SESSION</Text>
-            <Text style={styles.headerTitle}>{FOCUS_ICONS[workoutType] === 'REST' ? 'REST DAY' : `💪 ${dayDetail.title}`}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {/* <Ionicons name={FOCUS_ICONS[workoutType] || 'barbell'} size={24} color={palette.textPrimary} /> */}
+              <Text style={styles.headerTitle}>{workoutType === 'rest' ? 'REST DAY' : dayDetail.title}</Text>
+            </View>
             <Text style={styles.headerMeta}>{uiSubLabel}</Text>
           </View>
         )}
@@ -400,9 +415,38 @@ export const TodayScreen = () => {
         {/* STRICT STATE SWITCH */}
         {lifecycleState === 'SESSION_COMPLETED_TODAY' 
           ? renderCompletedState() 
-          : lifecycleState === 'RECOVERY_DAY'
-            ? null // Just show the top info banner for recovery days
-            : renderWorkoutSection()
+          : lifecycleState === 'PROGRAM_TRANSITION_PENDING'
+            ? (
+              <View style={styles.completedContainer}>
+                <View style={[styles.completionCard, { borderColor: palette.primary }]}>
+                  <View style={styles.rowCenter}>
+                    <Ionicons name="rocket" size={24} color={palette.primary} />
+                    <View style={styles.flex}>
+                      <Text style={styles.completionTitle}>Program Phase Complete</Text>
+                      <Text style={styles.completionSub}>You've finished your 4-week cycle. Time for a fresh challenge.</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.startWorkoutBtn, { marginTop: 24 }]}
+                    onPress={async () => {
+                      if (!user?.id || !profile) return;
+                      try {
+                        await generateProgram(user.id, profile.goal, profile.level, profile.environment, profile.diet_type);
+                        queryClient.invalidateQueries();
+                        Alert.alert("Success", "Your new training phase is ready!");
+                      } catch (e) {
+                        Alert.alert("Error", "Could not generate next phase.");
+                      }
+                    }}
+                  >
+                    <Text style={styles.startWorkoutText}>Generate New Phase</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )
+            : lifecycleState === 'RECOVERY_DAY'
+              ? null // Just show the top info banner for recovery days
+              : renderWorkoutSection()
         }
 
         {/* MEALS - Only show if not completed today, and usually on rest days they have specific meal plans too */}
@@ -452,7 +496,7 @@ export const TodayScreen = () => {
                         <View style={styles.stepsWrap}>
                           {details.formCues.map((cue: string, index: number) => (
                             <View key={index} style={styles.stepRow}>
-                              <Text style={styles.stepDot}>💡</Text>
+                              <Ionicons name="bulb" size={16} color={palette.primary} style={{ marginRight: 8, marginTop: 2 }} />
                               <Text style={styles.stepText}>{cue}</Text>
                             </View>
                           ))}
@@ -464,7 +508,7 @@ export const TodayScreen = () => {
                       <>
                         <Text style={styles.sectionHeader}>Beginner Weight Selection</Text>
                         <View style={styles.tipBox}>
-                          <Text style={styles.tipIcon}>⚖️</Text>
+                          <Ionicons name="barbell" size={20} color={palette.primary} style={styles.tipIcon} />
                           <Text style={styles.tipText}>{details.beginnerLoadTip}</Text>
                         </View>
                       </>
@@ -476,7 +520,7 @@ export const TodayScreen = () => {
                         <View style={styles.stepsWrap}>
                           {details.commonMistakes.map((mistake: string, index: number) => (
                             <View key={index} style={styles.stepRow}>
-                              <Text style={styles.stepDot}>⚠️</Text>
+                              <Ionicons name="warning" size={16} color={palette.warning} style={{ marginRight: 8, marginTop: 2 }} />
                               <Text style={styles.stepText}>{mistake}</Text>
                             </View>
                           ))}
@@ -618,7 +662,7 @@ const styles = StyleSheet.create({
   },
   rowCenter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   flex: { flex: 1 },
-  completionIcon: { fontSize: 32 },
+  completionIcon: { ...fonts.label, fontSize: 14, color: palette.primary, fontWeight: '800', letterSpacing: 2 },
   completionTitle: { ...fonts.h3, color: palette.textPrimary },
   completionSub: { ...fonts.body, color: palette.textSecondary, fontSize: 13, marginTop: 2 },
   
@@ -684,6 +728,6 @@ const styles = StyleSheet.create({
     paddingVertical: 18, gap: 10,
     ...shadows.button,
   },
-  startWorkoutEmoji: { fontSize: 22 },
+  startWorkoutEmoji: { ...fonts.button, color: palette.white, fontSize: 16, fontWeight: '800', letterSpacing: 1 },
   startWorkoutText: { ...fonts.button, color: palette.white, fontSize: 18, letterSpacing: 0.5 },
 });

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { Badge } from '../../../core/components/Badge';
 import { StatCard } from '../../../core/components/StatCard';
@@ -22,6 +23,7 @@ export const AnalyticsScreen = () => {
 
   const { retention, activation, funnel, dropOff, streakIntelligence: si, usage, sessionDepth, consistencyScore } = analytics;
 
+  return (
     <View style={styles.screen}>
       <View style={styles.floatingHeader}>
         <BrandHeader />
@@ -82,7 +84,7 @@ export const AnalyticsScreen = () => {
       <SectionBlock title="Streak Intelligence">
         <View style={styles.tileGrid}>
           <StatCard value={String(si.currentStreak)} label="Current" highlight mono />
-          <StatCard value={String(si.longestStreak)} label="Longest" icon="🏆" mono />
+          <StatCard value={String(si.longestStreak)} label="Longest" icon="trophy" mono />
         </View>
         <View style={styles.tileGrid}>
           <StatCard value={String(si.averageStreakLength)} label="Average" mono />
@@ -112,7 +114,10 @@ export const AnalyticsScreen = () => {
           {dropOff.dropOffDate ? (
             <><Row label="Drop-Off Date" value={dropOff.dropOffDate} /><Row label="Program Day" value={String(dropOff.dropOffProgramDay)} /><Row label="Days Ago" value={String(dropOff.daysSinceDropOff)} /></>
           ) : (
-            <View style={styles.noDropOff}><Text style={styles.noDropOffText}>✅ No drop-off detected</Text></View>
+            <View style={styles.noDropOff}>
+              <Ionicons name="checkmark-circle" size={16} color={palette.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.noDropOffText}>No drop-off detected</Text>
+            </View>
           )}
         </PrimaryCard>
       </SectionBlock>
@@ -172,6 +177,6 @@ const styles = StyleSheet.create({
   metricLabel: { ...fonts.body, color: palette.textSecondary, fontSize: 13 },
   metricValue: { ...fonts.mono, fontSize: 13 },
 
-  noDropOff: { alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: palette.bgCard, borderWidth: 1, borderColor: palette.borderSubtle },
+  noDropOff: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: palette.bgCard, borderWidth: 1, borderColor: palette.borderSubtle },
   noDropOffText: { ...fonts.label, color: palette.primary, fontWeight: '700' },
 });

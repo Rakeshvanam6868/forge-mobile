@@ -95,9 +95,7 @@ function generateId(): string {
 
 function buildExerciseLog(w: AdaptedWorkout): ExerciseLog {
   const category = inferCategory(w.exercise_name);
-  const rawSets = w.adaptedSets ?? w.sets ?? 3;
-  const minSets = MIN_SETS[category] ?? DEFAULT_MIN_SETS;
-  const sets = Math.max(rawSets, minSets);
+  const sets = w.adaptedSets!; // Guaranteed non-null by adaptiveEngine Phase 10
 
   const emptySetLogs: SetLog[] = Array.from({ length: sets }, (_, i) => ({
     setNumber: i + 1,

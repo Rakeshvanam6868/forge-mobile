@@ -61,7 +61,7 @@ export const HomeScreen = () => {
       </View>
 
       <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding + 80 }]} showsVerticalScrollIndicator={false}>
-        {/* 💪 Motivation Card — only if today's workout not yet done */}
+        {/* Motivation Card — only if today's workout not yet done */}
       <MotivationCard
         currentStreak={currentStreak}
         completedThisWeek={analytics.usage.activeDaysLast7}
@@ -76,7 +76,7 @@ export const HomeScreen = () => {
       {/* ══════ HERO STREAK ══════ */}
       <View style={styles.heroCard}>
         <View style={styles.heroContent}>
-          <Text style={styles.heroFlame}>🔥</Text>
+          <Text style={styles.heroFlame}>STREAK</Text>
           <Text style={styles.heroNum}>{currentStreak}</Text>
           <Text style={styles.heroLabel}>Day Streak</Text>
           <Text style={styles.heroMeta}>Adaptive Timeline</Text>
@@ -87,7 +87,7 @@ export const HomeScreen = () => {
       <View style={styles.statRow}>
         <StatCard value={`${analytics.usage.activeDaysLast7}/7`} label="This Week" mono />
         <StatCard value={`${analytics.usage.activeDaysLast30}/30`} label="This Month" mono />
-        <StatCard value={String(analytics.streakIntelligence.longestStreak)} label="Best Streak" icon="🏆" />
+        <StatCard value={String(analytics.streakIntelligence.longestStreak)} label="Best Streak" />
       </View>
 
       <SectionBlock>
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   heroContent: { alignItems: 'center', justifyContent: 'center' },
-  heroFlame: { fontSize: 44, marginBottom: spacing.xs },
+  heroFlame: { ...fonts.label, fontSize: 12, color: palette.primary, marginBottom: spacing.xs, letterSpacing: 2, fontWeight: '700' },
   heroNum: { ...fonts.h1, fontSize: 64, color: palette.primary, lineHeight: 72, textAlign: 'center' },
   heroLabel: { ...fonts.h3, color: palette.textPrimary, marginTop: -4, textAlign: 'center' },
   heroMeta: { ...fonts.label, color: palette.textMuted, marginTop: spacing.md, textTransform: 'uppercase' },

@@ -84,7 +84,7 @@ describe('Workout Timeline & Rotation Logic', () => {
       };
       
       const result = computeNextWorkout(state, history, todayStr);
-      expect(result.workoutType).toBe('cardio_core');
+      expect(result.workoutType).toBe('rest');
     });
   });
 

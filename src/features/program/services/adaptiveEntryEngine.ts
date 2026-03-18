@@ -98,13 +98,13 @@ function getProgramIndexForType(type: WorkoutType): number {
 
 function getMuscleGroupsForType(type: WorkoutType): string[] {
   switch (type) {
-    case 'push': return ['chest', 'shoulders', 'arms'];
-    case 'pull': return ['back', 'arms'];
+    case 'push': return ['chest', 'shoulders', 'triceps'];
+    case 'pull': return ['back', 'biceps'];
     case 'legs':
     case 'lower': return ['legs', 'core'];
     case 'upper':
-    case 'upper_hypertrophy': return ['chest', 'back', 'shoulders', 'arms'];
-    case 'full': return ['chest', 'back', 'legs', 'shoulders', 'core', 'arms'];
+    case 'upper_hypertrophy': return ['chest', 'back', 'shoulders', 'biceps', 'triceps'];
+    case 'full': return ['chest', 'back', 'legs', 'shoulders', 'core', 'biceps', 'triceps'];
     default: return [];
   }
 }
@@ -179,9 +179,9 @@ export function computeNextWorkout(
   
   // 4️⃣ NEW USER (NO HISTORY) + STANDARD ROTATION
   if (state.frequency === '0' || state.frequency === '1-2') {
-    // 1-2 days: Full body -> Mobility/Cardio rotation
-    if (lastType === 'full') nextType = 'cardio_core';
-    else if (lastType === 'cardio_core' || lastType === 'cardio') nextType = 'mobility';
+    // 1-2 days: Full body -> Rest -> Mobility -> Full body rotation
+    if (lastType === 'full') nextType = 'rest';
+    else if (lastType === 'rest') nextType = 'mobility';
     else if (lastType === 'mobility') nextType = 'full';
     else nextType = 'full'; // default start for low freq
   } else if (state.frequency === '3-4') {
@@ -256,7 +256,7 @@ export function computeNextWorkout(
   return {
     programIndex: getProgramIndexForType(nextType),
     workoutType: nextType,
-    reason: coverageReason || (hasHistory ? 'Based on your last session' : 'Based on onboarding profile'),
+    reason: coverageReason || (hasHistory ? (nextType === 'rest' ? 'Scheduled recovery day' : 'Based on your last session') : 'Based on onboarding profile'),
     recoveryOptimized: nextType === 'mobility' || nextType === 'rest',
     volumeModifier,
     uiLabel: GOAL_LABELS[safeGoal],

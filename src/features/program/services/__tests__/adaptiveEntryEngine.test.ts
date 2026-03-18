@@ -82,7 +82,7 @@ describe('Adaptive Workout Entry Engine', () => {
     };
     const result = computeNextWorkout(state, history, todayStr);
     
-    expect(result.workoutType).toBe('cardio_core');
+    expect(result.workoutType).toBe('rest');
     expect(result.volumeModifier).toBe('reduced'); // beginner
   });
 

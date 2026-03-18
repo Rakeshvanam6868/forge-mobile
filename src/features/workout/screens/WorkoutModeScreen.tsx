@@ -242,7 +242,7 @@ const ExerciseGuideModal = ({ visible, onClose, exerciseId }: {
 
             {!data && (
               <View style={guideStyles.noData}>
-                <Text style={guideStyles.noDataEmoji}>💪</Text>
+                <Text style={guideStyles.noDataEmoji}>—</Text>
                 <Text style={guideStyles.noDataText}>No detailed guide available.</Text>
                 <Text style={guideStyles.noDataSub}>Focus on slow, controlled movements.</Text>
               </View>
@@ -705,7 +705,7 @@ export const WorkoutModeScreen = () => {
         <TouchableOpacity onPress={handleExit} hitSlop={20} style={styles.exitWrap}>
           <Text style={styles.exitBtn}>← Exit</Text>
         </TouchableOpacity>
-        <Text style={styles.elapsed}>⏱ {elapsed}</Text>
+        <Text style={styles.elapsed}>{elapsed}</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -751,9 +751,9 @@ export const WorkoutModeScreen = () => {
                   <Text style={[styles.setLabel, isCompleted && !isEditing && styles.setLabelDone]}>
                     Set {idx + 1} of {currentExercise.targetSets}
                   </Text>
-                  {isCompleted && !isEditing && <Text style={styles.checkMark}>✅</Text>}
+                  {isCompleted && !isEditing && <Text style={styles.checkMark}>DONE</Text>}
                   {isCurrentSet && <Text style={styles.currentDot}>← CURRENT</Text>}
-                  {isEditing && <Text style={styles.editingDot}>✏️ EDITING</Text>}
+                  {isEditing && <Text style={styles.editingDot}>EDITING</Text>}
                 </View>
 
                 {isEditing ? (
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
   nextBtnText: { ...fonts.button, color: palette.white },
   finishBtn: { backgroundColor: palette.success, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', ...shadows.button },
   finishBtnText: { ...fonts.button, color: palette.white },
-  skipExBtn: { flex: 1, backgroundColor: palette.bgSecondary, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
+  skipExBtn: { flex: 1, backgroundColor: palette.bgElevated, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: palette.borderSubtle },
   skipExBtnText: { ...fonts.button, color: palette.textSecondary },
   skipReplaceRow: { flexDirection: 'row', gap: 12 },
   replaceExBtn: { flex: 1, backgroundColor: palette.primarySoft, borderRadius: radius.sm, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: palette.primary + '30' },

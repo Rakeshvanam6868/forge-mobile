@@ -34,10 +34,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const refreshToken = parsedUrl.searchParams.get('refresh_token');
 
       if (accessToken && refreshToken) {
-        await supabase.auth.setSession({
+        const { error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
+        if (error) console.error('[AuthProvider] setSession error:', error.message);
       }
     } catch (e) {
       console.warn('[handleDeepLink] Failed parsing URL', e);
